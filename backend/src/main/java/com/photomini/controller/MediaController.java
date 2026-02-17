@@ -182,8 +182,13 @@ public class MediaController {
             String formatSelector;
 
             if (formatId != null && !formatId.isEmpty()) {
-                // Specific resolution selected - use format ID with best audio
-                formatSelector = formatId + "+bestaudio/best";
+                // HLS formats (hls-xxx) can't be combined with bestaudio
+                if (formatId.startsWith("hls-")) {
+                    formatSelector = formatId;
+                } else {
+                    // For regular formats, combine with bestaudio
+                    formatSelector = formatId + "+bestaudio/best";
+                }
             } else {
                 // No specific resolution - use best video+audio
                 formatSelector = "bestvideo+bestaudio/best";
@@ -231,7 +236,14 @@ public class MediaController {
             // Determine format
             String formatSelector;
             if (formatId != null && !formatId.isEmpty()) {
-                formatSelector = formatId + "+bestaudio/best";
+                // HLS formats (hls-xxx) can't be combined with bestaudio
+                // Use them directly
+                if (formatId.startsWith("hls-")) {
+                    formatSelector = formatId;
+                } else {
+                    // For regular formats, combine with bestaudio
+                    formatSelector = formatId + "+bestaudio/best";
+                }
             } else {
                 formatSelector = "bestvideo+bestaudio/best";
             }
