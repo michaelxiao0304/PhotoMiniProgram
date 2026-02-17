@@ -1,0 +1,14 @@
+{
+  "description": "社交媒体下载器",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.0.0",
+  "appid": "your-appid",
+  "projectname": "PhotoMiniProgram",
+  "condition": {}
+}

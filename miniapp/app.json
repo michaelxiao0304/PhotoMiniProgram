@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "社交媒体下载器",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black"
+  },
+  "permission": {
+    "scope.writePhotosAlbum": {
+      "desc": "保存图片和视频到相册"
+    }
+  }
+}
