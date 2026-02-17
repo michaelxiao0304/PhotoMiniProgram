@@ -15,6 +15,7 @@
       class="parse-btn"
       bindtap="onParse"
       loading="{{loading}}"
+      disabled="{{btnDisabled}}"
     >
       解析
     </button>
@@ -43,9 +44,18 @@
             >
               {{res.label}} ({{res.size}})
             </button>
+            <button
+              wx:if="{{item.downloadUrl}}"
+              type="primary"
+              size="mini"
+              bindtap="onSave"
+              data-url="{{item.downloadUrl}}"
+            >
+              保存到相册
+            </button>
           </view>
           <button
-            wx:if="{{!item.resolutions}}"
+            wx:if="{{!item.resolutions && item.downloadUrl}}"
             type="primary"
             size="mini"
             bindtap="onSave"

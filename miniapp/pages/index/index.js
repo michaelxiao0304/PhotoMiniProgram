@@ -4,6 +4,7 @@ Page({
   data: {
     url: '',
     loading: false,
+    btnDisabled: false,
     mediaList: [],
     selectedResolutions: {}
   },
@@ -21,7 +22,13 @@ Page({
       return;
     }
 
-    this.setData({ loading: true });
+    // URL 格式验证
+    if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) {
+      wx.showToast({ title: '请输入有效的URL', icon: 'none' });
+      return;
+    }
+
+    this.setData({ loading: true, btnDisabled: true });
 
     wx.request({
       url: app.globalData.apiBase + '/parse',
@@ -51,17 +58,39 @@ Page({
         wx.showToast({ title: '网络错误', icon: 'none' });
       },
       complete: function() {
-        self.setData({ loading: false });
+        self.setData({ loading: false, btnDisabled: false });
       }
     });
   },
 
   onSelectResolution: function(e) {
+    var self = this;
     var mediaId = e.currentTarget.dataset.mediaId;
     var resId = e.currentTarget.dataset.resId;
+    var mediaList = this.data.mediaList;
     var selectedResolutions = this.data.selectedResolutions;
+
+    // 查找对应的媒体和分辨率
+    for (var i = 0; i < mediaList.length; i++) {
+      if (mediaList[i].id === mediaId && mediaList[i].resolutions) {
+        var resolutions = mediaList[i].resolutions;
+        for (var j = 0; j < resolutions.length; j++) {
+          if (resolutions[j].id === resId) {
+            // 更新对应媒体的 downloadUrl
+            mediaList[i].downloadUrl = app.globalData.apiBase + resolutions[j].downloadUrl;
+            mediaList[i].resolution = resolutions[j].label;
+            break;
+          }
+        }
+        break;
+      }
+    }
+
     selectedResolutions[mediaId] = resId;
-    this.setData({ selectedResolutions: selectedResolutions });
+    self.setData({
+      selectedResolutions: selectedResolutions,
+      mediaList: mediaList
+    });
   },
 
   onSave: function(e) {
