@@ -1,7 +1,12 @@
 <view class="container">
   <view class="header">
-    <text class="title">社交媒体下载器</text>
-    <text class="subtitle">支持 Twitter / Instagram / TikTok</text>
+    <view class="header-left">
+      <text class="title">社交媒体下载器</text>
+      <text class="subtitle">支持 Twitter / Instagram / TikTok</text>
+    </view>
+    <view class="header-right" bindtap="goToHistory">
+      <text class="history-btn">历史</text>
+    </view>
   </view>
 
   <view class="input-section">

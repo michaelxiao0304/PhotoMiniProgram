@@ -253,5 +253,11 @@ Page({
       // Direct URL, download directly
       doDownload(url);
     }
+  },
+
+  goToHistory: function() {
+    wx.navigateTo({
+      url: '/pages/history/history'
+    });
   }
 });

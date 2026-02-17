@@ -1,9 +1,12 @@
 package com.photomini.controller;
 
 import com.photomini.dto.ParseRequest;
+import com.photomini.model.HistoryRecord;
 import com.photomini.model.MediaInfo;
 import com.photomini.model.ParseResult;
 import com.photomini.service.YtDlpService;
+
+import java.security.MessageDigest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -19,8 +22,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api")
@@ -34,6 +40,12 @@ public class MediaController {
 
     // Simple in-memory storage for media info (for mock implementation)
     private final Map<String, MediaInfo> mediaStore = new HashMap<>();
+
+    // History storage - URL as key, keeps only latest (dedup by URL)
+    private final Map<String, HistoryRecord> historyStore = new ConcurrentHashMap<>();
+
+    // Keep history in order (most recent first)
+    private final List<String> historyOrder = new ArrayList<>();
 
     /**
      * Parse URL to extract media information
@@ -67,6 +79,37 @@ public class MediaController {
                     if (media.getThumbnailUrl() != null && !media.getThumbnailUrl().isEmpty()) {
                         media.setThumbnailUrl("/media/" + media.getId() + "/preview");
                     }
+                }
+            }
+
+            // Save to history (dedup by URL, keep latest)
+            if (result.isSuccess() && result.getMediaList() != null && !result.getMediaList().isEmpty()) {
+                String normalizedUrl = normalizeUrl(request.getUrl());
+                HistoryRecord history = new HistoryRecord();
+                history.setId(normalizedUrl);
+                history.setUrl(request.getUrl());
+                history.setPlatform(result.getPlatform());
+                history.setTitle(result.getTitle());
+                history.setThumbnailUrl(result.getMediaList().get(0).getThumbnailUrl());
+                history.setMediaCount(result.getMediaList().size());
+                List<String> types = new ArrayList<>();
+                for (MediaInfo m : result.getMediaList()) {
+                    types.add(m.getType().name());
+                }
+                history.setMediaTypes(types);
+                history.setTimestamp(System.currentTimeMillis());
+
+                // Remove old position if exists
+                historyOrder.remove(normalizedUrl);
+
+                // Add to front (most recent)
+                historyOrder.add(0, normalizedUrl);
+                historyStore.put(normalizedUrl, history);
+
+                // Keep only latest 50
+                while (historyOrder.size() > 50) {
+                    String oldest = historyOrder.remove(historyOrder.size() - 1);
+                    historyStore.remove(oldest);
                 }
             }
 
@@ -254,6 +297,61 @@ public class MediaController {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         return new ResponseEntity<>(response, headers, HttpStatus.OK);
+    }
+
+    /**
+     * Get history list
+     * GET /api/history
+     */
+    @GetMapping("/history")
+    public ResponseEntity<List<HistoryRecord>> getHistory() {
+        List<HistoryRecord> history = new ArrayList<>();
+        for (String key : historyOrder) {
+            HistoryRecord record = historyStore.get(key);
+            if (record != null) {
+                history.add(record);
+            }
+        }
+        return ResponseEntity.ok(history);
+    }
+
+    /**
+     * Clear all history
+     * DELETE /api/history
+     */
+    @DeleteMapping("/history")
+    public ResponseEntity<Map<String, String>> clearHistory() {
+        historyStore.clear();
+        historyOrder.clear();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "History cleared");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Normalize URL for deduplication - returns MD5 hash as key
+     */
+    private String normalizeUrl(String url) {
+        if (url == null) return null;
+        // Remove trailing slash
+        String normalized = url.trim();
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        normalized = normalized.toLowerCase();
+
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(normalized.getBytes("UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            // Fallback to hashCode
+            return String.valueOf(normalized.hashCode());
+        }
     }
 
     /**
