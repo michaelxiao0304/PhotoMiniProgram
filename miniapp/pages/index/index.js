@@ -122,37 +122,91 @@ Page({
   onSave: function(e) {
     var self = this;
     var url = e.currentTarget.dataset.url;
-    if (!url) return;
+    var mediaId = e.currentTarget.dataset.mediaId;
+    var selectedResolutions = this.data.selectedResolutions;
+    var formatId = null;
 
-    wx.downloadFile({
-      url: url,
-      success: function(res) {
-        var tempPath = res.tempFilePath;
-        wx.saveImageToPhotosAlbum({
-          filePath: tempPath,
-          success: function() {
-            wx.showToast({ title: '保存成功', icon: 'success' });
-          },
-          fail: function(err) {
-            if (err.errMsg.indexOf('auth deny') !== -1) {
-              wx.showModal({
-                title: '提示',
-                content: '需要授权保存到相册',
-                success: function(res) {
-                  if (res.confirm) {
-                    wx.openSetting();
-                  }
-                }
-              });
-            } else {
-              wx.showToast({ title: '保存失败', icon: 'none' });
+    // Get selected resolution format ID if available
+    if (mediaId && selectedResolutions && selectedResolutions[mediaId]) {
+      var resId = selectedResolutions[mediaId];
+      var mediaList = this.data.mediaList;
+      for (var i = 0; i < mediaList.length; i++) {
+        if (mediaList[i].id === mediaId && mediaList[i].resolutions) {
+          var resolutions = mediaList[i].resolutions;
+          for (var j = 0; j < resolutions.length; j++) {
+            if (resolutions[j].id === resId) {
+              formatId = resolutions[j].formatId;
+              break;
             }
           }
-        });
-      },
-      fail: function() {
-        wx.showToast({ title: '下载失败', icon: 'none' });
+          break;
+        }
       }
-    });
+    }
+
+    // Helper function to do the actual download
+    var doDownload = function(downloadUrl) {
+      wx.downloadFile({
+        url: downloadUrl,
+        success: function(res) {
+          var tempPath = res.tempFilePath;
+          wx.saveImageToPhotosAlbum({
+            filePath: tempPath,
+            success: function() {
+              wx.showToast({ title: '保存成功', icon: 'success' });
+            },
+            fail: function(err) {
+              if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+                wx.showModal({
+                  title: '提示',
+                  content: '需要授权保存到相册',
+                  success: function(res) {
+                    if (res.confirm) {
+                      wx.openSetting();
+                    }
+                  }
+                });
+              } else {
+                wx.showToast({ title: '保存失败', icon: 'none' });
+              }
+            }
+          });
+        },
+        fail: function() {
+          wx.showToast({ title: '下载失败', icon: 'none' });
+        }
+      });
+    };
+
+    if (!url) return;
+
+    // Check if URL needs to be resolved (for videos)
+    if (url.indexOf('FORMAT:') === 0 && mediaId) {
+      // Need to resolve URL first
+      wx.showLoading({ title: '获取下载链接...' });
+      var resolveUrl = app.globalData.apiBase + '/media/' + mediaId + '/download-url';
+      if (formatId) {
+        resolveUrl = resolveUrl + '?formatId=' + formatId;
+      }
+
+      wx.request({
+        url: resolveUrl,
+        success: function(res) {
+          wx.hideLoading();
+          if (res.data && res.data.downloadUrl) {
+            doDownload(res.data.downloadUrl);
+          } else {
+            wx.showToast({ title: '获取链接失败', icon: 'none' });
+          }
+        },
+        fail: function() {
+          wx.hideLoading();
+          wx.showToast({ title: '获取链接失败', icon: 'none' });
+        }
+      });
+    } else {
+      // Direct URL, download directly
+      doDownload(url);
+    }
   }
 });

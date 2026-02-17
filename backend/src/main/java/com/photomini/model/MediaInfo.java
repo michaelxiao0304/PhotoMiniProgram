@@ -9,6 +9,7 @@ public class MediaInfo {
     private MediaType type;
     private String thumbnailUrl;
     private String downloadUrl;
+    private String sourceUrl;  // Original URL for resolving download URL
     private String filename;
     private Integer width;
     private Integer height;

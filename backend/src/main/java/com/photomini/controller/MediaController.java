@@ -4,6 +4,7 @@ import com.photomini.dto.ParseRequest;
 import com.photomini.model.MediaInfo;
 import com.photomini.model.ParseResult;
 import com.photomini.service.YtDlpService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,7 @@ public class MediaController {
                     mediaCopy.setFilename(media.getFilename());
                     mediaCopy.setThumbnailUrl(media.getThumbnailUrl());  // Keep original URL
                     mediaCopy.setDownloadUrl(media.getDownloadUrl());
+                    mediaCopy.setSourceUrl(request.getUrl());  // Store original URL for resolving download
                     mediaCopy.setWidth(media.getWidth());
                     mediaCopy.setHeight(media.getHeight());
                     mediaCopy.setResolution(media.getResolution());
@@ -105,6 +107,53 @@ public class MediaController {
         } catch (Exception e) {
             logger.error("Failed to generate preview: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage().getBytes());
+        }
+    }
+
+    /**
+     * Resolve actual download URL for a media item
+     * GET /api/media/{mediaId}/download-url?formatId=xxx
+     */
+    @GetMapping("/media/{mediaId}/download-url")
+    public ResponseEntity<?> getDownloadUrl(@PathVariable String mediaId,
+                                            @RequestParam(required = false) String formatId) {
+        MediaInfo media = mediaStore.get(mediaId);
+        if (media == null) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Media not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
+
+        try {
+            // Use sourceUrl (original media URL) to resolve download URL
+            String sourceUrl = media.getSourceUrl();
+            if (sourceUrl == null || sourceUrl.isEmpty()) {
+                sourceUrl = media.getDownloadUrl();
+            }
+
+            String resolvedUrl;
+            String formatSelector = formatId;
+
+            if (formatId != null && !formatId.isEmpty()) {
+                // Specific resolution selected - use format ID with best audio
+                formatSelector = formatId + "+bestaudio/best";
+            } else {
+                // No specific resolution - use best video+audio
+                formatSelector = "bestvideo+bestaudio/best";
+            }
+
+            resolvedUrl = ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("downloadUrl", resolvedUrl);
+            response.put("formatId", formatId);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Failed to resolve download URL: {}", e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Failed to resolve download URL: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
 

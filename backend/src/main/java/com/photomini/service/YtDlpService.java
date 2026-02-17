@@ -203,35 +203,47 @@ public class YtDlpService {
             if (entry.has("formats")) {
                 JsonNode formats = entry.get("formats");
                 for (JsonNode formatInfo : formats) {
+                    // Only include formats that have video codec
                     if (formatInfo.has("vcodec") && !formatInfo.get("vcodec").asText().equals("none")) {
-                        ResolutionOption option = new ResolutionOption();
-                        option.setId(media.getId() + "_" + formatInfo.get("format_id").asText());
+                        String formatId = formatInfo.get("format_id").asText();
 
-                        String res = "";
-                        if (formatInfo.has("height") && !formatInfo.get("height").isNull()) {
-                            res = formatInfo.get("height").asText() + "p";
+                        // Skip if no height info (pure audio or invalid)
+                        if (!formatInfo.has("height") || formatInfo.get("height").isNull()) {
+                            continue;
                         }
+
+                        ResolutionOption option = new ResolutionOption();
+                        option.setId(media.getId() + "_" + formatId);
+                        option.setFormatId(formatId);  // Store format ID for later use
+
+                        String res = formatInfo.get("height").asText() + "p";
                         option.setLabel(res);
 
+                        // Calculate combined file size (video + audio if available)
+                        long totalSize = 0;
                         if (formatInfo.has("filesize") && !formatInfo.get("filesize").isNull()) {
-                            long size = formatInfo.get("filesize").asLong();
-                            option.setSize(formatFileSize(size));
+                            totalSize = formatInfo.get("filesize").asLong();
                         } else if (formatInfo.has("filesize_approx") && !formatInfo.get("filesize_approx").isNull()) {
-                            long size = formatInfo.get("filesize_approx").asLong();
-                            option.setSize(formatFileSize(size));
+                            totalSize = formatInfo.get("filesize_approx").asLong();
                         }
-                        // If size is not available, don't set it (will be null, won't display)
+                        // Check if audio is in separate stream (need to add audio size)
+                        if (formatInfo.has("acodec") && !formatInfo.get("acodec").asText().equals("none")) {
+                            // Has embedded audio
+                        } else if (formatInfo.has("audio_filesize") && !formatInfo.get("audio_filesize").isNull()) {
+                            // Add separate audio stream size estimate
+                            totalSize += formatInfo.get("audio_filesize").asLong();
+                        }
+                        if (totalSize > 0) {
+                            option.setSize(formatFileSize(totalSize));
+                        }
 
-                        if (!res.isEmpty()) {
-                            resolutions.add(option);
+                        resolutions.add(option);
 
-                            // Track best quality
-                            if (bestFormatId == null ||
-                                (formatInfo.has("height") && !formatInfo.get("height").isNull() &&
-                                 (bestResolution == null || formatInfo.get("height").asInt() > Integer.parseInt(bestResolution.replace("p", ""))))) {
-                                bestFormatId = formatInfo.get("format_id").asText();
-                                bestResolution = res;
-                            }
+                        // Track best quality (video+audio combined)
+                        if (bestFormatId == null ||
+                            (bestResolution == null || formatInfo.get("height").asInt() > Integer.parseInt(bestResolution.replace("p", "")))) {
+                            bestFormatId = formatId;
+                            bestResolution = res;
                         }
                     }
                 }
@@ -250,9 +262,10 @@ public class YtDlpService {
             media.setResolutions(resolutions);
             media.setDefaultResolution(bestResolution != null ? bestResolution : "best");
 
-            // For videos, set direct download URL using best quality
-            if (bestFormatId != null && entry.has("url")) {
-                media.setDownloadUrl(entry.get("url").asText());
+            // For videos, use bestvideo+bestaudio format to ensure audio is included
+            // Store format selector instead of direct URL - it will be resolved when needed
+            if (bestFormatId != null) {
+                media.setDownloadUrl("FORMAT:" + bestFormatId);
             }
         } else {
             // For images, set direct download URL
@@ -364,6 +377,42 @@ public class YtDlpService {
         executeCommand(command, timeoutSeconds);
 
         return Paths.get(outputPath);
+    }
+
+    /**
+     * Resolve download URL using yt-dlp format selector
+     * @param originalUrl the original media URL
+     * @param formatSelector yt-dlp format selector (e.g., "best", "bestvideo+bestaudio", "137+140")
+     * @return the resolved direct download URL
+     */
+    public String resolveDownloadUrl(String originalUrl, String formatSelector) throws Exception {
+        // For video, use bestvideo+bestaudio to ensure audio is included
+        // For specific resolution, use format ID directly
+        String format;
+        if (formatSelector == null || formatSelector.isEmpty() || formatSelector.equals("best")) {
+            format = "bestvideo+bestaudio/best";
+        } else if (formatSelector.matches("\\d+")) {
+            // It's a format ID, combine with best audio
+            format = formatSelector + "+bestaudio/best";
+        } else {
+            format = formatSelector;
+        }
+
+        List<String> command = new ArrayList<>();
+        command.add(ytDlpCommand);
+        command.add("-g");  // Get direct URL
+        command.add("-f");
+        command.add(format);
+        command.add(originalUrl);
+
+        String result = executeCommand(command, 60);
+        if (result == null || result.trim().isEmpty()) {
+            throw new Exception("Failed to resolve download URL");
+        }
+
+        // yt-dlp may return multiple URLs (video+audio), take the first one
+        String[] urls = result.trim().split("\n");
+        return urls[0].trim();
     }
 
     /**

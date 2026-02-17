@@ -10,4 +10,5 @@ public class ResolutionOption {
     private String label;
     private String size;
     private String downloadUrl;
+    private String formatId;  // yt-dlp format ID for specific resolution
 }
