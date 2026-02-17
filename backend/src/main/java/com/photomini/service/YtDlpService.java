@@ -233,6 +233,11 @@ public class YtDlpService {
                             totalSize = formatInfo.get("filesize").asLong();
                         } else if (formatInfo.has("filesize_approx") && !formatInfo.get("filesize_approx").isNull()) {
                             totalSize = formatInfo.get("filesize_approx").asLong();
+                        } else if (formatInfo.has("tbr") && !formatInfo.get("tbr").isNull() && entry.has("duration")) {
+                            // Estimate from bitrate: size = bitrate (kbps) * duration (seconds) / 8
+                            double tbr = formatInfo.get("tbr").asDouble();
+                            double duration = entry.get("duration").asDouble();
+                            totalSize = (long)(tbr * 1000 * duration / 8);
                         }
                         // Check if audio is in separate stream (need to add audio size)
                         if (formatInfo.has("acodec") && !formatInfo.get("acodec").asText().equals("none")) {
