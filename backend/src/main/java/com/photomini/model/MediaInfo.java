@@ -16,10 +16,3 @@ public class MediaInfo {
     private List<ResolutionOption> resolutions;
     private String defaultResolution;
 }
-
-@Data
-class ResolutionOption {
-    private String id;
-    private String label;
-    private String size;
-}

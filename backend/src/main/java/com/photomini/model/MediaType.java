@@ -1,5 +1,5 @@
 package com.photomini.model;
 
 public enum MediaType {
-    IMAGE, VIDEO
+    IMAGE, VIDEO, AUDIO
 }

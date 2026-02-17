@@ -63,15 +63,20 @@ public class MediaController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
 
-        // Mock implementation - return placeholder response
-        // Actual preview generation will be implemented in future iterations
-        String previewPath = ytDlpService.generatePreview(media);
-        Map<String, String> response = new HashMap<>();
-        response.put("mediaId", mediaId);
-        response.put("previewPath", previewPath);
-        response.put("thumbnailUrl", media.getThumbnailUrl());
+        // Generate preview using yt-dlp
+        try {
+            java.nio.file.Path previewPath = ytDlpService.generatePreview(media);
+            Map<String, Object> response = new HashMap<>();
+            response.put("mediaId", mediaId);
+            response.put("previewPath", previewPath.toString());
+            response.put("thumbnailUrl", media.getThumbnailUrl());
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Failed to generate preview: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 
     /**
