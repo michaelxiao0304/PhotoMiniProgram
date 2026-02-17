@@ -361,7 +361,12 @@ public class YtDlpService {
         Files.createDirectories(Paths.get(downloadDir));
 
         // Ensure we get MP4 output (for HLS streams)
-        String outputPath = downloadDir + File.separator + filename + ".mp4";
+        String baseFilename = filename;
+        if (filename.contains(".")) {
+            // Remove existing extension to avoid .mp4.mp4
+            baseFilename = filename.substring(0, filename.lastIndexOf('.'));
+        }
+        String outputPath = downloadDir + File.separator + baseFilename + ".mp4";
 
         List<String> command = new ArrayList<>();
         command.add(ytDlpCommand);
