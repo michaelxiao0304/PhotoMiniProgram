@@ -69,8 +69,6 @@ class YtDlpServiceTest {
 
     @Test
     void testParseUrl_TikTok() {
-
-    void testParseUrl_TikTok() {
         ReflectionTestUtils.setField(ytDlpService, "ytDlpCommand", "yt-dlp");
         ReflectionTestUtils.setField(ytDlpService, "tempDir", "/tmp");
         ReflectionTestUtils.setField(ytDlpService, "timeoutSeconds", 300);
