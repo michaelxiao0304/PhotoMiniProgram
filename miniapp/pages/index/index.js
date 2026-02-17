@@ -38,11 +38,19 @@ Page({
       success: function(res) {
         if (res.data.success) {
           var mediaList = res.data.mediaList.map(function(item) {
+            // If URL is already complete (starts with http/https), use it directly
+            var thumbnailUrl = item.thumbnailUrl && item.thumbnailUrl.indexOf('http') === 0
+              ? item.thumbnailUrl
+              : app.globalData.apiBase + item.thumbnailUrl;
+            var downloadUrl = item.downloadUrl && item.downloadUrl.indexOf('http') === 0
+              ? item.downloadUrl
+              : (item.downloadUrl ? app.globalData.apiBase + item.downloadUrl : null);
+
             return {
               id: item.id,
               type: item.type,
-              thumbnailUrl: app.globalData.apiBase + item.thumbnailUrl,
-              downloadUrl: item.downloadUrl ? app.globalData.apiBase + item.downloadUrl : null,
+              thumbnailUrl: thumbnailUrl,
+              downloadUrl: downloadUrl,
               filename: item.filename,
               resolution: item.resolution,
               resolutions: item.resolutions,
@@ -76,8 +84,13 @@ Page({
         var resolutions = mediaList[i].resolutions;
         for (var j = 0; j < resolutions.length; j++) {
           if (resolutions[j].id === resId) {
-            // 更新对应媒体的 downloadUrl
-            mediaList[i].downloadUrl = app.globalData.apiBase + resolutions[j].downloadUrl;
+            // 更新对应媒体的 downloadUrl - 使用外部URL或拼接
+            var resDownloadUrl = resolutions[j].downloadUrl;
+            if (resDownloadUrl && resDownloadUrl.indexOf('http') === 0) {
+              mediaList[i].downloadUrl = resDownloadUrl;
+            } else if (resDownloadUrl) {
+              mediaList[i].downloadUrl = app.globalData.apiBase + resDownloadUrl;
+            }
             mediaList[i].resolution = resolutions[j].label;
             break;
           }
