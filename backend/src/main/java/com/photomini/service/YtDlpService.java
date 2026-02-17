@@ -265,35 +265,47 @@ public class YtDlpService {
     }
 
     /**
-     * Generate preview for the media using yt-dlp
+     * Generate preview for the media - downloads thumbnail and returns as byte array
      */
-    public Path generatePreview(MediaInfo media) throws Exception {
-        String previewDir = tempDir + File.separator + "preview";
-        Files.createDirectories(Paths.get(previewDir));
+    public byte[] generatePreview(String thumbnailUrl) throws Exception {
+        if (thumbnailUrl == null || thumbnailUrl.isEmpty()) {
+            return null;
+        }
 
-        String previewPath = previewDir + File.separator + media.getId() + ".jpg";
+        // Use curl to download the image directly
+        List<String> command = new ArrayList<>();
+        command.add("/usr/bin/curl");
+        command.add("-s");
+        command.add("-L");
+        command.add("--max-time");
+        command.add("30");
+        command.add(thumbnailUrl);
 
-        // If we already have a thumbnail URL, just return that path info
-        if (media.getThumbnailUrl() != null && !media.getThumbnailUrl().isEmpty()) {
-            // Download thumbnail to local file
-            List<String> command = new ArrayList<>();
-            command.add(ytDlpCommand);
-            command.add("--output");
-            command.add(previewPath);
-            command.add("--skip-download");
-            command.add("--write-thumbnail");
-            command.add("--convert-thumbnails");
-            command.add("jpg");
-            command.add(media.getThumbnailUrl());
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
 
-            try {
-                executeCommand(command, 60);
-            } catch (Exception e) {
-                logger.warn("Failed to generate preview: {}", e.getMessage());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (InputStream is = process.getInputStream()) {
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, read);
             }
         }
 
-        return Paths.get(previewPath);
+        boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            return null;
+        }
+
+        if (process.exitValue() != 0) {
+            logger.warn("Failed to download thumbnail: exit code {}", process.exitValue());
+            return null;
+        }
+
+        return baos.toByteArray();
     }
 
     /**
