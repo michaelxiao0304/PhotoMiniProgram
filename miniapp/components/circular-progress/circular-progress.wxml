@@ -1,0 +1,9 @@
+<!--components/circular-progress/circular-progress.wxml-->
+<view class="circular-progress" style="width: {{size}}px; height: {{size}}px;">
+  <view class="spinner">
+    <view class="spinner-circle" style="border-color: {{color}} transparent {{color}} {{color}};"></view>
+  </view>
+  <view class="progress-content">
+    <text class="progress-label">{{status}}</text>
+  </view>
+</view>

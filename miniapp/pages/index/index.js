@@ -6,7 +6,9 @@ Page({
     loading: false,
     btnDisabled: false,
     mediaList: [],
-    selectedResolutions: {}
+    selectedResolutions: {},
+    downloading: false,
+    downloadStatus: '准备中...'
   },
 
   onUrlChange: function(e) {
@@ -164,9 +166,11 @@ Page({
 
     // Helper function to do the actual download
     var doDownload = function(downloadUrl, mediaType) {
+      var self = this;
       wx.downloadFile({
         url: downloadUrl,
         success: function(res) {
+          self.setData({ downloading: false });
           var tempPath = res.tempFilePath;
           // Use appropriate API based on media type
           if (mediaType === 'VIDEO') {
@@ -216,6 +220,7 @@ Page({
           }
         },
         fail: function() {
+          self.setData({ downloading: false });
           wx.showToast({ title: '下载失败', icon: 'none' });
         }
       });
@@ -223,10 +228,12 @@ Page({
 
     if (!url) return;
 
+    // Show download modal
+    this.setData({ downloading: true, downloadStatus: '获取链接...' });
+
     // Check if URL needs to be resolved (for videos)
     if (url.indexOf('FORMAT:') === 0 && mediaId) {
       // Need to resolve URL first
-      wx.showLoading({ title: '获取下载链接...' });
       var resolveUrl = app.globalData.apiBase + '/media/' + mediaId + '/download-url';
       if (formatId) {
         resolveUrl = resolveUrl + '?formatId=' + formatId;
@@ -234,50 +241,75 @@ Page({
 
       wx.request({
         url: resolveUrl,
-        success: function(res) {
-          wx.hideLoading();
+        success: (res) => {
           if (res.data && res.data.needsStreaming) {
             // Need server-side streaming (for HLS streams)
-            wx.showLoading({ title: '正在处理...' });
+            this.setData({ downloadStatus: '下载视频...' });
             var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream';
             if (formatId) {
               streamUrl = streamUrl + '?formatId=' + formatId;
             }
             wx.downloadFile({
               url: streamUrl,
-              success: function(downRes) {
-                wx.hideLoading();
+              success: (downRes) => {
+                this.setData({ downloading: false });
                 var tempPath = downRes.tempFilePath;
-                wx.saveImageToPhotosAlbum({
-                  filePath: tempPath,
-                  success: function() {
-                    wx.showToast({ title: '保存成功', icon: 'success' });
-                  },
-                  fail: function(err) {
-                    if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-                      wx.showModal({
-                        title: '提示',
-                        content: '需要授权保存到相册',
-                        success: function(res) {
-                          if (res.confirm) {
-                            wx.openSetting();
+                if (mediaType === 'VIDEO') {
+                  wx.saveVideoToPhotosAlbum({
+                    filePath: tempPath,
+                    success: () => {
+                      wx.showToast({ title: '保存成功', icon: 'success' });
+                    },
+                    fail: (err) => {
+                      if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+                        wx.showModal({
+                          title: '提示',
+                          content: '需要授权保存到相册',
+                          success: (res) => {
+                            if (res.confirm) {
+                              wx.openSetting();
+                            }
                           }
-                        }
-                      });
-                    } else {
-                      wx.showToast({ title: '保存失败', icon: 'none' });
+                        });
+                      } else {
+                        wx.showToast({ title: '保存失败', icon: 'none' });
+                      }
                     }
-                  }
-                });
+                  });
+                } else {
+                  wx.saveImageToPhotosAlbum({
+                    filePath: tempPath,
+                    success: () => {
+                      wx.showToast({ title: '保存成功', icon: 'success' });
+                    },
+                    fail: (err) => {
+                      if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+                        wx.showModal({
+                          title: '提示',
+                          content: '需要授权保存到相册',
+                          success: (res) => {
+                            if (res.confirm) {
+                              wx.openSetting();
+                            }
+                          }
+                        });
+                      } else {
+                        wx.showToast({ title: '保存失败', icon: 'none' });
+                      }
+                    }
+                  });
+                }
               },
-              fail: function() {
-                wx.hideLoading();
+              fail: () => {
+                this.setData({ downloading: false });
                 wx.showToast({ title: '下载失败', icon: 'none' });
               }
             });
           } else if (res.data && res.data.downloadUrl) {
+            this.setData({ downloading: false });
             doDownload(res.data.downloadUrl, mediaType);
           } else {
+            this.setData({ downloading: false });
             wx.showToast({ title: '获取链接失败', icon: 'none' });
           }
         },
@@ -288,6 +320,7 @@ Page({
       });
     } else {
       // Direct URL, download directly
+      this.setData({ downloading: true, downloadStatus: '下载中...' });
       doDownload(url, mediaType);
     }
   },

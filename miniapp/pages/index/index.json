@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "circular-progress": "/components/circular-progress/circular-progress"
+  },
+  "navigationBarTitleText": "社交媒体下载器"
+}
