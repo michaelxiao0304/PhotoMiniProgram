@@ -197,9 +197,10 @@ public class MediaController {
             String resolvedUrl = ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
 
             Map<String, Object> response = new HashMap<>();
-            // Check if it's an HLS stream (needs server-side streaming)
-            boolean needsStreaming = resolvedUrl != null && resolvedUrl.contains(".m3u8");
-            response.put("downloadUrl", needsStreaming ? null : resolvedUrl);
+            // Always use streaming for videos to ensure reliability and correct format
+            // This avoids CORS issues and URL expiration problems
+            boolean needsStreaming = true;
+            response.put("downloadUrl", null);
             response.put("needsStreaming", needsStreaming);
             response.put("formatId", formatId);
 
