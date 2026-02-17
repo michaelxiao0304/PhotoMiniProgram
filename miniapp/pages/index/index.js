@@ -55,9 +55,15 @@ Page({
             var thumbnailUrl = item.thumbnailUrl && item.thumbnailUrl.indexOf('http') === 0
               ? item.thumbnailUrl
               : app.globalData.apiBase + item.thumbnailUrl;
-            var downloadUrl = item.downloadUrl && item.downloadUrl.indexOf('http') === 0
-              ? item.downloadUrl
-              : (item.downloadUrl ? app.globalData.apiBase + item.downloadUrl : null);
+            // Don't concatenate for FORMAT: selectors - they need to be resolved via API
+            var downloadUrl;
+            if (item.downloadUrl && item.downloadUrl.indexOf('FORMAT:') === 0) {
+              downloadUrl = item.downloadUrl;  // Keep as-is for now, will resolve in onSave
+            } else if (item.downloadUrl && item.downloadUrl.indexOf('http') === 0) {
+              downloadUrl = item.downloadUrl;
+            } else {
+              downloadUrl = item.downloadUrl ? app.globalData.apiBase + item.downloadUrl : null;
+            }
 
             return {
               id: item.id,
