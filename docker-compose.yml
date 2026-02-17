@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "9080:9080"
+    volumes:
+      - yt-dlp-cache:/tmp/photo-mini-program
+    restart: unless-stopped
+
+volumes:
+  yt-dlp-cache:
