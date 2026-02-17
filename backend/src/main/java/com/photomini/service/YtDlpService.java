@@ -155,18 +155,25 @@ public class YtDlpService {
         // Determine media type
         String format = entry.has("format") ? entry.get("format").asText() : "";
         String formatNote = entry.has("format_note") ? entry.get("format_note").asText() : "";
+        String vcodec = entry.has("vcodec") ? entry.get("vcodec").asText() : "none";
+        String acodec = entry.has("acodec") ? entry.get("acodec").asText() : "none";
 
-        if (format.contains("video") || entry.has("thumbnail")) {
-            // Has video stream
-            if (format.contains("audio") || formatNote.contains("audio only")) {
-                media.setType(MediaType.AUDIO);
-            } else {
-                media.setType(MediaType.VIDEO);
-            }
-        } else if (entry.has("url") && (format.contains("audio") || formatNote.contains("audio"))) {
+        // Check if it's video (has video codec and not "none")
+        boolean hasVideo = vcodec != null && !vcodec.equals("none");
+        // Check if it has separate audio (not audio-only)
+        boolean hasSeparateAudio = acodec != null && !acodec.equals("none");
+
+        if (hasVideo) {
+            // Has video stream - it's a VIDEO (even if it also has audio)
+            media.setType(MediaType.VIDEO);
+        } else if (hasSeparateAudio || formatNote.contains("audio only") || format.contains("audio only")) {
+            // No video, has audio only - it's AUDIO
             media.setType(MediaType.AUDIO);
+        } else if (entry.has("thumbnail")) {
+            // Has thumbnail but no video/audio info - assume VIDEO
+            media.setType(MediaType.VIDEO);
         } else {
-            // Default to video if has thumbnail
+            // Default to VIDEO
             media.setType(MediaType.VIDEO);
         }
 
