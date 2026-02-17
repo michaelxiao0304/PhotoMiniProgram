@@ -261,11 +261,13 @@ public class MediaController {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", media.getFilename() + ".mp4");
+
+            // Use simple filename to avoid extension issues
+            String simpleFilename = "video_" + System.currentTimeMillis() + ".mp4";
+            headers.setContentDispositionFormData("attachment", simpleFilename);
 
             // Use a simple approach - download to temp file then stream
-            String filename = media.getId() + ".mp4";
-            Path tempFile = ytDlpService.downloadMedia(sourceUrlFinal, formatSelectorFinal, filename);
+            Path tempFile = ytDlpService.downloadMedia(sourceUrlFinal, formatSelectorFinal, simpleFilename);
 
             byte[] fileContent = Files.readAllBytes(tempFile);
 
