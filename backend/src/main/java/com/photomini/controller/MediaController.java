@@ -214,12 +214,26 @@ public class MediaController {
     }
 
     /**
+     * Stream media directly from yt-dlp (with .mp4 extension for correct filename)
+     * GET /api/media/{mediaId}/stream.mp4?formatId=xxx
+     */
+    @GetMapping("/media/{mediaId}/stream.mp4")
+    public ResponseEntity<?> streamMediaMp4(@PathVariable String mediaId,
+                                           @RequestParam(required = false) String formatId) {
+        return doStreamMedia(mediaId, formatId);
+    }
+
+    /**
      * Stream media directly from yt-dlp
      * GET /api/media/{mediaId}/stream?formatId=xxx
      */
     @GetMapping("/media/{mediaId}/stream")
     public ResponseEntity<?> streamMedia(@PathVariable String mediaId,
                                           @RequestParam(required = false) String formatId) {
+        return doStreamMedia(mediaId, formatId);
+    }
+
+    private ResponseEntity<?> doStreamMedia(String mediaId, String formatId) {
         MediaInfo media = mediaStore.get(mediaId);
         if (media == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Media not found");
@@ -238,11 +252,8 @@ public class MediaController {
             String formatSelector;
             if (formatId != null && !formatId.isEmpty()) {
                 if (formatId.startsWith("hls-")) {
-                    // For HLS formats, combine video with best audio
-                    // Use format like hls-1462+hls-audio-128000-Audio
                     formatSelector = formatId + "+hls-audio-best/best";
                 } else {
-                    // For regular formats, combine with bestaudio
                     formatSelector = formatId + "+bestaudio/best";
                 }
             } else {
@@ -262,16 +273,12 @@ public class MediaController {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 
-            // Use simple filename to avoid extension issues
-            String simpleFilename = "video_" + System.currentTimeMillis() + ".mp4";
-            headers.setContentDispositionFormData("attachment", simpleFilename);
+            // Use .mp4 extension for video
+            String filename = "video_" + System.currentTimeMillis() + ".mp4";
+            headers.setContentDispositionFormData("attachment", filename);
 
-            // Use a simple approach - download to temp file then stream
-            Path tempFile = ytDlpService.downloadMedia(sourceUrlFinal, formatSelectorFinal, simpleFilename);
-
+            Path tempFile = ytDlpService.downloadMedia(sourceUrlFinal, formatSelectorFinal, filename);
             byte[] fileContent = Files.readAllBytes(tempFile);
-
-            // Clean up temp file
             Files.deleteIfExists(tempFile);
 
             return ResponseEntity.ok()

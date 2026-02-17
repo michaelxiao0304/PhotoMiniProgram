@@ -245,7 +245,7 @@ Page({
           if (res.data && res.data.needsStreaming) {
             // Need server-side streaming (for HLS streams)
             this.setData({ downloadStatus: '下载视频...' });
-            var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream';
+            var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream.mp4';
             if (formatId) {
               streamUrl = streamUrl + '?formatId=' + formatId;
             }
