@@ -6,3 +6,9 @@ spring:
     active: dev
   application:
     name: photo-mini-program
+
+# yt-dlp configuration
+yt-dlp:
+  command: yt-dlp
+  temp-dir: /tmp
+  timeout-seconds: 300

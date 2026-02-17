@@ -1,1 +1,5 @@
 /home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/PhotoMiniProgramApplication.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/ParseResult.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/service/YtDlpService.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/MediaInfo.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/MediaType.java

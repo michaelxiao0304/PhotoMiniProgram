@@ -31,6 +31,9 @@ public class YtDlpService {
      * @return ParseResult containing parsed media information
      */
     public ParseResult parseUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            throw new IllegalArgumentException("URL cannot be null or empty");
+        }
         ParseResult result = new ParseResult();
         result.setSuccess(true);
         result.setPlatform(detectPlatform(url));
@@ -92,6 +95,9 @@ public class YtDlpService {
      * @return platform name
      */
     private String detectPlatform(String url) {
+        if (url == null) {
+            return "Unknown";
+        }
         if (url.contains("instagram.com")) {
             return "Instagram";
         } else if (url.contains("twitter.com") || url.contains("x.com")) {

@@ -1,1 +1,6 @@
+com/photomini/service/YtDlpService.class
+com/photomini/model/ParseResult.class
+com/photomini/model/ResolutionOption.class
 com/photomini/PhotoMiniProgramApplication.class
+com/photomini/model/MediaType.class
+com/photomini/model/MediaInfo.class
