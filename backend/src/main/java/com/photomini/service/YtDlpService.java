@@ -356,20 +356,23 @@ public class YtDlpService {
     /**
      * Download media to a temp file and return the path
      */
-    public Path downloadMedia(String url, String formatId, String filename) throws Exception {
+    public Path downloadMedia(String url, String formatSelector, String filename) throws Exception {
         String downloadDir = tempDir + File.separator + "download";
         Files.createDirectories(Paths.get(downloadDir));
 
-        String outputPath = downloadDir + File.separator + filename;
+        // Ensure we get MP4 output (for HLS streams)
+        String outputPath = downloadDir + File.separator + filename + ".mp4";
 
         List<String> command = new ArrayList<>();
         command.add(ytDlpCommand);
         command.add("-o");
         command.add(outputPath);
-        if (formatId != null && !formatId.isEmpty()) {
+        if (formatSelector != null && !formatSelector.isEmpty()) {
             command.add("-f");
-            command.add(formatId);
+            command.add(formatSelector);
         }
+        command.add("--merge-output-format");
+        command.add("mp4");
         command.add("--no-part");
         command.add("--no-cache-dir");
         command.add(url);
@@ -380,6 +383,54 @@ public class YtDlpService {
     }
 
     /**
+     * Stream video directly from yt-dlp to output stream
+     * Used for HLS streams that need to be merged
+     */
+    public void streamMedia(String url, String formatId, OutputStream out) throws Exception {
+        List<String> command = new ArrayList<>();
+        command.add(ytDlpCommand);
+        command.add("-o");
+        command.add("-");  // Output to stdout
+        command.add("-f");
+
+        if (formatId != null && !formatId.isEmpty()) {
+            command.add(formatId);
+        } else {
+            command.add("bestvideo+bestaudio/best");
+        }
+
+        command.add("--no-part");
+        command.add("--no-cache-dir");
+        command.add("--merge-output-format");
+        command.add("mp4");
+        command.add(url);
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(false);
+
+        Process process = pb.start();
+
+        // Copy process output to stream
+        try (InputStream is = process.getInputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+        }
+
+        boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            throw new Exception("Download timeout");
+        }
+
+        if (process.exitValue() != 0) {
+            throw new Exception("Download failed with exit code: " + process.exitValue());
+        }
+    }
+
+    /**
      * Resolve download URL using yt-dlp format selector
      * @param originalUrl the original media URL
      * @param formatSelector yt-dlp format selector (e.g., "best", "bestvideo+bestaudio", "137+140")
@@ -387,13 +438,13 @@ public class YtDlpService {
      */
     public String resolveDownloadUrl(String originalUrl, String formatSelector) throws Exception {
         // For video, use bestvideo+bestaudio to ensure audio is included
-        // For specific resolution, use format ID directly
+        // Exclude HLS streams (protocol!=http_hls) to get direct MP4/WebM URLs
         String format;
         if (formatSelector == null || formatSelector.isEmpty() || formatSelector.equals("best")) {
-            format = "bestvideo+bestaudio/best";
+            format = "bestvideo[protocol!=http_hls]+bestaudio[protocol!=http_hls]/best[protocol!=http_hls]";
         } else if (formatSelector.matches("\\d+")) {
-            // It's a format ID, combine with best audio
-            format = formatSelector + "+bestaudio/best";
+            // It's a format ID, combine with best audio but exclude HLS
+            format = formatSelector + "+bestaudio[protocol!=http_hls]/best[protocol!=http_hls]";
         } else {
             format = formatSelector;
         }

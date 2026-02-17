@@ -199,7 +199,46 @@ Page({
         url: resolveUrl,
         success: function(res) {
           wx.hideLoading();
-          if (res.data && res.data.downloadUrl) {
+          if (res.data && res.data.needsStreaming) {
+            // Need server-side streaming (for HLS streams)
+            wx.showLoading({ title: '正在处理...' });
+            var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream';
+            if (formatId) {
+              streamUrl = streamUrl + '?formatId=' + formatId;
+            }
+            wx.downloadFile({
+              url: streamUrl,
+              success: function(downRes) {
+                wx.hideLoading();
+                var tempPath = downRes.tempFilePath;
+                wx.saveImageToPhotosAlbum({
+                  filePath: tempPath,
+                  success: function() {
+                    wx.showToast({ title: '保存成功', icon: 'success' });
+                  },
+                  fail: function(err) {
+                    if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+                      wx.showModal({
+                        title: '提示',
+                        content: '需要授权保存到相册',
+                        success: function(res) {
+                          if (res.confirm) {
+                            wx.openSetting();
+                          }
+                        }
+                      });
+                    } else {
+                      wx.showToast({ title: '保存失败', icon: 'none' });
+                    }
+                  }
+                });
+              },
+              fail: function() {
+                wx.hideLoading();
+                wx.showToast({ title: '下载失败', icon: 'none' });
+              }
+            });
+          } else if (res.data && res.data.downloadUrl) {
             doDownload(res.data.downloadUrl);
           } else {
             wx.showToast({ title: '获取链接失败', icon: 'none' });

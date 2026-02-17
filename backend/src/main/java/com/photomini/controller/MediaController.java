@@ -15,6 +15,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,6 +27,7 @@ import java.util.Map;
 public class MediaController {
 
     private static final Logger logger = LoggerFactory.getLogger(MediaController.class);
+    private static final int timeoutSeconds = 300;
 
     @Autowired
     private YtDlpService ytDlpService;
@@ -131,8 +136,7 @@ public class MediaController {
                 sourceUrl = media.getDownloadUrl();
             }
 
-            String resolvedUrl;
-            String formatSelector = formatId;
+            String formatSelector;
 
             if (formatId != null && !formatId.isEmpty()) {
                 // Specific resolution selected - use format ID with best audio
@@ -142,10 +146,13 @@ public class MediaController {
                 formatSelector = "bestvideo+bestaudio/best";
             }
 
-            resolvedUrl = ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
+            String resolvedUrl = ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("downloadUrl", resolvedUrl);
+            // Check if it's an HLS stream (needs server-side streaming)
+            boolean needsStreaming = resolvedUrl != null && resolvedUrl.contains(".m3u8");
+            response.put("downloadUrl", needsStreaming ? null : resolvedUrl);
+            response.put("needsStreaming", needsStreaming);
             response.put("formatId", formatId);
 
             return ResponseEntity.ok(response);
@@ -154,6 +161,69 @@ public class MediaController {
             Map<String, String> error = new HashMap<>();
             error.put("error", "Failed to resolve download URL: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    /**
+     * Stream media directly from yt-dlp
+     * GET /api/media/{mediaId}/stream?formatId=xxx
+     */
+    @GetMapping("/media/{mediaId}/stream")
+    public ResponseEntity<?> streamMedia(@PathVariable String mediaId,
+                                          @RequestParam(required = false) String formatId) {
+        MediaInfo media = mediaStore.get(mediaId);
+        if (media == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Media not found");
+        }
+
+        final String sourceUrlFinal;
+        final String formatSelectorFinal;
+
+        try {
+            String sourceUrl = media.getSourceUrl();
+            if (sourceUrl == null || sourceUrl.isEmpty()) {
+                sourceUrl = media.getDownloadUrl();
+            }
+
+            // Determine format
+            String formatSelector;
+            if (formatId != null && !formatId.isEmpty()) {
+                formatSelector = formatId + "+bestaudio/best";
+            } else {
+                formatSelector = "bestvideo+bestaudio/best";
+            }
+
+            sourceUrlFinal = sourceUrl;
+            formatSelectorFinal = formatSelector;
+
+        } catch (Exception e) {
+            logger.error("Failed to prepare stream: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to prepare stream: " + e.getMessage());
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", media.getFilename() + ".mp4");
+
+            // Use a simple approach - download to temp file then stream
+            String filename = media.getId() + ".mp4";
+            Path tempFile = ytDlpService.downloadMedia(sourceUrlFinal, formatSelectorFinal, filename);
+
+            byte[] fileContent = Files.readAllBytes(tempFile);
+
+            // Clean up temp file
+            Files.deleteIfExists(tempFile);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(fileContent);
+
+        } catch (Exception e) {
+            logger.error("Failed to stream media: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Streaming failed: " + e.getMessage());
         }
     }
 
