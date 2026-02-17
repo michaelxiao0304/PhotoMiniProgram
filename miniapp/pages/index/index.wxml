@@ -1,1 +1,60 @@
-<!-- 首页结构文件 -->
+<view class="container">
+  <view class="header">
+    <text class="title">社交媒体下载器</text>
+    <text class="subtitle">支持 Twitter / Instagram / TikTok</text>
+  </view>
+
+  <view class="input-section">
+    <input
+      class="url-input"
+      placeholder="粘贴分享链接..."
+      bindinput="onUrlChange"
+      value="{{url}}"
+    />
+    <button
+      class="parse-btn"
+      bindtap="onParse"
+      loading="{{loading}}"
+    >
+      解析
+    </button>
+  </view>
+
+  <view class="media-list" wx:if="{{mediaList.length > 0}}">
+    <block wx:for="{{mediaList}}" wx:key="id">
+      <view class="media-item">
+        <image
+          src="{{item.thumbnailUrl}}"
+          mode="aspectFill"
+          class="media-thumb"
+        />
+        <view class="media-info">
+          <text class="media-type">{{item.type === 'video' ? '视频' : '图片'}}</text>
+          <text class="media-resolution" wx:if="{{item.resolution}}">{{item.resolution}}</text>
+          <view wx:if="{{item.resolutions}}" class="resolution-selector">
+            <button
+              wx:for="{{item.resolutions}}"
+              wx:for-item="res"
+              wx:key="id"
+              size="mini"
+              bindtap="onSelectResolution"
+              data-media-id="{{item.id}}"
+              data-res-id="{{res.id}}"
+            >
+              {{res.label}} ({{res.size}})
+            </button>
+          </view>
+          <button
+            wx:if="{{!item.resolutions}}"
+            type="primary"
+            size="mini"
+            bindtap="onSave"
+            data-url="{{item.downloadUrl}}"
+          >
+            保存到相册
+          </button>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>
