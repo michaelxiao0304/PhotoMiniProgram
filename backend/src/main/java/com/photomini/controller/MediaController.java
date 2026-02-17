@@ -237,10 +237,10 @@ public class MediaController {
             // Determine format
             String formatSelector;
             if (formatId != null && !formatId.isEmpty()) {
-                // HLS formats (hls-xxx) can't be combined with bestaudio
-                // Use them directly
                 if (formatId.startsWith("hls-")) {
-                    formatSelector = formatId;
+                    // For HLS formats, combine video with best audio
+                    // Use format like hls-1462+hls-audio-128000-Audio
+                    formatSelector = formatId + "+hls-audio-best/best";
                 } else {
                     // For regular formats, combine with bestaudio
                     formatSelector = formatId + "+bestaudio/best";
