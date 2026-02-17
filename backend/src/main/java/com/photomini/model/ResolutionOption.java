@@ -7,4 +7,5 @@ public class ResolutionOption {
     private String id;
     private String label;
     private String size;
+    private String downloadUrl;
 }

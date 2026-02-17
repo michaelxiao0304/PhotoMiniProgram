@@ -219,6 +219,8 @@ public class YtDlpService {
                         } else if (formatInfo.has("filesize_approx") && !formatInfo.get("filesize_approx").isNull()) {
                             long size = formatInfo.get("filesize_approx").asLong();
                             option.setSize(formatFileSize(size));
+                        } else {
+                            option.setSize("Unknown");
                         }
 
                         if (!res.isEmpty()) {
@@ -248,6 +250,11 @@ public class YtDlpService {
 
             media.setResolutions(resolutions);
             media.setDefaultResolution(bestResolution != null ? bestResolution : "best");
+
+            // For videos, set direct download URL using best quality
+            if (bestFormatId != null && entry.has("url")) {
+                media.setDownloadUrl(entry.get("url").asText());
+            }
         } else {
             // For images, set direct download URL
             if (entry.has("url")) {
