@@ -28,6 +28,8 @@
           src="{{item.thumbnailUrl}}"
           mode="aspectFill"
           class="media-thumb"
+          binderror="onImageError"
+          data-media-id="{{item.id}}"
         />
         <view class="media-info">
           <text class="media-type">{{item.type === 'video' ? '视频' : '图片'}}</text>
@@ -38,6 +40,7 @@
               wx:for-item="res"
               wx:key="id"
               size="mini"
+              type="{{selectedResolutions[item.id] === res.id ? 'primary' : 'default'}}"
               bindtap="onSelectResolution"
               data-media-id="{{item.id}}"
               data-res-id="{{res.id}}"

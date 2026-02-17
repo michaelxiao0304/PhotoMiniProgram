@@ -13,6 +13,19 @@ Page({
     this.setData({ url: e.detail.value });
   },
 
+  // 图片加载失败时使用占位图
+  onImageError: function(e) {
+    var mediaId = e.currentTarget.dataset.mediaId;
+    var mediaList = this.data.mediaList;
+    for (var i = 0; i < mediaList.length; i++) {
+      if (mediaList[i].id === mediaId) {
+        mediaList[i].thumbnailUrl = '/images/placeholder.png';
+        break;
+      }
+    }
+    this.setData({ mediaList: mediaList });
+  },
+
   onParse: function() {
     var self = this;
     var url = this.data.url;
