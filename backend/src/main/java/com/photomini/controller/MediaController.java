@@ -56,8 +56,9 @@ public class MediaController {
                     mediaStore.put(media.getId(), mediaCopy);
 
                     // Modify the returned result's thumbnailUrl for frontend
+                    // Return relative path without /api prefix (frontend adds apiBase which already includes /api)
                     if (media.getThumbnailUrl() != null && !media.getThumbnailUrl().isEmpty()) {
-                        media.setThumbnailUrl("/api/media/" + media.getId() + "/preview");
+                        media.setThumbnailUrl("/media/" + media.getId() + "/preview");
                     }
                 }
             }
