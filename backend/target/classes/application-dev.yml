@@ -1,0 +1,9 @@
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.photomini: DEBUG
+    org.springframework.web: DEBUG
