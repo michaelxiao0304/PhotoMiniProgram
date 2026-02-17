@@ -219,9 +219,8 @@ public class YtDlpService {
                         } else if (formatInfo.has("filesize_approx") && !formatInfo.get("filesize_approx").isNull()) {
                             long size = formatInfo.get("filesize_approx").asLong();
                             option.setSize(formatFileSize(size));
-                        } else {
-                            option.setSize("Unknown");
                         }
+                        // If size is not available, don't set it (will be null, won't display)
 
                         if (!res.isEmpty()) {
                             resolutions.add(option);
@@ -243,7 +242,7 @@ public class YtDlpService {
                 ResolutionOption option = new ResolutionOption();
                 option.setId(media.getId() + "_best");
                 option.setLabel(media.getResolution());
-                option.setSize("Unknown");
+                // Don't set size if unknown
                 resolutions.add(option);
                 bestResolution = media.getResolution();
             }

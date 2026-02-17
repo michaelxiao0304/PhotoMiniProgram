@@ -42,7 +42,7 @@
               data-media-id="{{item.id}}"
               data-res-id="{{res.id}}"
             >
-              {{res.label}} ({{res.size}})
+              {{res.label}}{{res.size ? ' (' + res.size + ')' : ''}}
             </button>
             <button
               wx:if="{{item.downloadUrl}}"
