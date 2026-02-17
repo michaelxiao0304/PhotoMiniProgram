@@ -36,6 +36,9 @@ public class YtDlpService {
     @Value("${yt-dlp.timeout-seconds:300}")
     private int timeoutSeconds;
 
+    @Value("${yt-dlp.cookies-file:}")
+    private String cookiesFile;
+
     public YtDlpService() {
         // Default constructor for tests
     }
@@ -81,6 +84,15 @@ public class YtDlpService {
             command.add("--dump-json");
             command.add("--no-download");
             command.add("--no-playlist");
+            command.add("--no-warnings");
+            command.add("-q");
+
+            // Add cookies if configured
+            if (cookiesFile != null && !cookiesFile.isEmpty()) {
+                command.add("--cookies");
+                command.add(cookiesFile);
+            }
+
             command.add(url);
 
             String jsonOutput = executeCommand(command, timeoutSeconds);
@@ -341,16 +353,28 @@ public class YtDlpService {
      */
     private String executeCommand(List<String> args, int timeout) throws Exception {
         ProcessBuilder processBuilder = new ProcessBuilder(args);
-        processBuilder.redirectErrorStream(true);
+        processBuilder.redirectErrorStream(false);
+
         Process process = processBuilder.start();
 
-        // Read output
+        // Read stdout (JSON output)
         StringBuilder output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 output.append(line).append("\n");
+            }
+        }
+
+        // Read stderr (warnings)
+        StringBuilder errorOutput = new StringBuilder();
+        try (BufferedReader errorReader = new BufferedReader(
+                new InputStreamReader(process.getErrorStream()))) {
+            String line;
+            while ((line = errorReader.readLine()) != null) {
+                errorOutput.append(line).append("\n");
+                logger.warn("yt-dlp: {}", line);
             }
         }
 
@@ -363,15 +387,17 @@ public class YtDlpService {
 
         int exitCode = process.exitValue();
         if (exitCode != 0) {
-            String errorMsg = output.toString();
+            String errorMsg = output.toString() + errorOutput.toString();
             if (errorMsg.contains("HTTP Error 429")) {
                 throw new Exception("Rate limited by server. Please try again later.");
             } else if (errorMsg.contains("Unable to extract")) {
                 throw new Exception("Unable to parse media. The URL may be private or unavailable.");
             } else if (errorMsg.contains("Video unavailable")) {
                 throw new Exception("Video is unavailable.");
+            } else if (errorMsg.contains("login required") || errorMsg.contains("Login")) {
+                throw new Exception("Login required. Please provide Instagram cookies.");
             }
-            throw new Exception("Command failed with exit code: " + exitCode);
+            throw new Exception("Command failed with exit code: " + exitCode + " - " + errorMsg.substring(0, Math.min(200, errorMsg.length())));
         }
 
         return output.toString();

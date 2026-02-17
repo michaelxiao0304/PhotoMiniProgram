@@ -9,6 +9,7 @@ spring:
 
 # yt-dlp configuration
 yt-dlp:
-  command: yt-dlp
-  temp-dir: /tmp
+  command: /home/ubuntu/.local/bin/yt-dlp
+  temp-dir: /tmp/photo-mini-program
   timeout-seconds: 300
+  cookies-file: /home/ubuntu/.config/instagram-cookies.txt
