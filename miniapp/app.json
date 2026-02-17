@@ -2,6 +2,8 @@
   "pages": [
     "pages/index/index"
   ],
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json",
   "window": {
     "navigationBarTitleText": "社交媒体下载器",
     "navigationBarBackgroundColor": "#ffffff",
