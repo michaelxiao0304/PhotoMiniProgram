@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -244,6 +245,7 @@ public class YtDlpService {
                             option.setSize(formatFileSize(totalSize));
                         }
 
+                        // For now, add all options - we'll deduplicate after
                         resolutions.add(option);
 
                         // Track best quality (video+audio combined)
@@ -264,6 +266,29 @@ public class YtDlpService {
                 // Don't set size if unknown
                 resolutions.add(option);
                 bestResolution = media.getResolution();
+            }
+
+            // Deduplicate resolutions - keep only the best quality (largest size) for each resolution
+            if (!resolutions.isEmpty()) {
+                java.util.Map<String, ResolutionOption> bestByResolution = new java.util.LinkedHashMap<>();
+                for (ResolutionOption opt : resolutions) {
+                    String label = opt.getLabel();
+                    String existingSize = bestByResolution.get(label) != null ? bestByResolution.get(label).getSize() : null;
+                    // Compare sizes - larger size = better quality
+                    if (!bestByResolution.containsKey(label) ||
+                        (opt.getSize() != null && (existingSize == null || opt.getSize().compareTo(existingSize) > 0))) {
+                        bestByResolution.put(label, opt);
+                    }
+                }
+                // Convert back to list sorted by resolution
+                java.util.List<ResolutionOption> deduped = new java.util.ArrayList<>(bestByResolution.values());
+                // Sort by resolution (height)
+                deduped.sort((a, b) -> {
+                    int heightA = Integer.parseInt(a.getLabel().replace("p", ""));
+                    int heightB = Integer.parseInt(b.getLabel().replace("p", ""));
+                    return heightB - heightA; // Descending
+                });
+                resolutions = deduped;
             }
 
             media.setResolutions(resolutions);
