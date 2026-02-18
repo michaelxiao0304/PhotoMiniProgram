@@ -37,7 +37,7 @@
           data-media-id="{{item.id}}"
         />
         <view class="media-info">
-          <text class="media-type">{{item.type === 'video' ? '视频' : '图片'}}</text>
+          <text class="media-type">{{item.type === 'VIDEO' ? '视频' : '图片'}}</text>
           <text class="media-resolution" wx:if="{{item.resolution}}">{{item.resolution}}</text>
           <view wx:if="{{item.resolutions}}" class="resolution-selector">
             <button

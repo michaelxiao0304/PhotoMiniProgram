@@ -197,10 +197,11 @@ public class MediaController {
             String resolvedUrl = ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
 
             Map<String, Object> response = new HashMap<>();
-            // Always use streaming for videos to ensure reliability and correct format
-            // This avoids CORS issues and URL expiration problems
-            boolean needsStreaming = true;
-            response.put("downloadUrl", null);
+            // Only use streaming for videos (to handle HLS streams and merge audio)
+            // For images, use direct download URL
+            boolean isVideo = media.getType() == com.photomini.model.MediaType.VIDEO;
+            boolean needsStreaming = isVideo;
+            response.put("downloadUrl", isVideo ? null : resolvedUrl);
             response.put("needsStreaming", needsStreaming);
             response.put("formatId", formatId);
 
@@ -271,7 +272,8 @@ public class MediaController {
 
         try {
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            // Set correct Content-Type for video/mp4 so WeChat recognizes it
+            headers.setContentType(MediaType.valueOf("video/mp4"));
 
             // Use .mp4 extension for video
             String filename = "video_" + System.currentTimeMillis() + ".mp4";
