@@ -81,7 +81,7 @@
   <!-- Download Progress Modal -->
   <view class="modal-mask" wx:if="{{downloading}}">
     <view class="modal-content">
-      <circular-progress status="{{downloadStatus}}" color="#07c160"></circular-progress>
+      <circular-progress status="{{downloadStatus}}" progress="{{downloadProgress}}" color="#07c160"></circular-progress>
     </view>
   </view>
 </view>
