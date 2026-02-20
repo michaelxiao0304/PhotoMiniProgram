@@ -12,6 +12,10 @@ Component({
     color: {
       type: String,
       value: '#07c160'
+    },
+    progress: {
+      type: String,
+      value: ''
     }
   },
 

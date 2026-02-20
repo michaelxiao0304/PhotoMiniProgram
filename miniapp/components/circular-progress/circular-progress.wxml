@@ -5,5 +5,6 @@
   </view>
   <view class="progress-content">
     <text class="progress-label">{{status}}</text>
+    <text class="progress-size" wx:if="{{progress}}">{{progress}}</text>
   </view>
 </view>

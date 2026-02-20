@@ -41,3 +41,10 @@
   font-size: 28rpx;
   color: #666;
 }
+
+.progress-size {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
