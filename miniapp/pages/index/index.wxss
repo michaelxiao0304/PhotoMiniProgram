@@ -84,6 +84,16 @@
   padding: 24rpx;
 }
 
+.media-title {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .media-type {
   font-size: 28rpx;
   color: #333;
