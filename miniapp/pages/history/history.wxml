@@ -2,18 +2,64 @@
 <view class="container">
   <view class="header">
     <text class="title">历史记录</text>
-    <text class="clear-btn" bindtap="onClearHistory" wx:if="{{!empty}}">清空</text>
+    <text class="clear-btn" bindtap="onClearHistory" wx:if="{{historyList.length > 0 || hasDownloadTasks}}">清空</text>
   </view>
 
   <view class="loading" wx:if="{{loading}}">
     <text>加载中...</text>
   </view>
 
-  <view class="empty" wx:if="{{empty && !loading}}">
+  <!-- Download Tasks Section -->
+  <view class="download-section" wx:if="{{hasDownloadTasks}}">
+    <view class="section-header">
+      <text class="section-title">下载任务</text>
+      <text class="clear-all-btn" bindtap="onClearAllTasks">清空</text>
+    </view>
+
+    <scroll-view scroll-y="true" class="task-list">
+      <block wx:for="{{downloadTasks}}" wx:key="id">
+        <view class="task-item">
+          <view class="task-header">
+            <text class="task-type">{{item.mediaType}}</text>
+            <text class="task-status {{item.status}}">{{item.status === 'completed' ? '已完成' : item.status === 'failed' ? '失败' : item.status === 'saving' ? '保存中' : item.status === 'downloading' ? '下载中' : item.status === 'resolving' ? '获取链接' : item.status}}</text>
+          </view>
+          <view class="task-title" wx:if="{{item.title}}">{{item.title}}</view>
+          <view class="task-url" wx:if="{{!item.title}}">{{item.url}}</view>
+
+          <!-- Progress bar for downloading status -->
+          <view class="task-progress" wx:if="{{item.status === 'downloading' || item.status === 'resolving'}}">
+            <progress percent="{{item.progressPercent}}" stroke-width="6" backgroundColor="#e0e0e0" activeColor="#07c160" />
+            <text class="progress-text">{{item.progress}}</text>
+          </view>
+
+          <!-- Error message for failed status -->
+          <view class="task-error" wx:if="{{item.status === 'failed'}}">
+            <text>{{item.error}}</text>
+          </view>
+
+          <!-- Completed message -->
+          <view class="task-completed" wx:if="{{item.status === 'completed'}}">
+            <text>已保存到相册</text>
+          </view>
+
+          <view class="task-footer">
+            <text class="task-time">{{item.createdAt}}</text>
+            <view class="task-actions">
+              <text class="task-btn retry" wx:if="{{item.status === 'failed'}}" bindtap="onRetryDownload" data-task-id="{{item.id}}">重试</text>
+              <text class="task-btn remove" bindtap="onClearTask" data-task-id="{{item.id}}">移除</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+  </view>
+
+  <view class="empty" wx:if="{{empty && !loading && !hasDownloadTasks}}">
     <text>暂无历史记录</text>
   </view>
 
-  <scroll-view scroll-y="true" class="history-list" wx:if="{{!empty}}">
+  <!-- History List -->
+  <scroll-view scroll-y="true" class="history-list" wx:if="{{historyList.length > 0}}">
     <block wx:for="{{historyList}}" wx:key="id">
       <view class="history-item">
         <view class="item-header">

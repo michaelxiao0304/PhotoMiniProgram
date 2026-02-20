@@ -175,8 +175,8 @@ Page({
     var mediaId = e.currentTarget.dataset.mediaId;
     var selectedResolutions = this.data.selectedResolutions;
     var formatId = null;
-    var mediaType = 'IMAGE';  // Default to image
-    var mediaTitle = '';  // Title for filename
+    var mediaType = 'IMAGE';
+    var mediaTitle = '';
 
     // Get media type and title from mediaList
     var mediaList = this.data.mediaList;
@@ -193,7 +193,6 @@ Page({
     // Get selected resolution format ID if available
     if (mediaId && selectedResolutions && selectedResolutions[mediaId]) {
       var resId = selectedResolutions[mediaId];
-      var mediaList = this.data.mediaList;
       for (var i = 0; i < mediaList.length; i++) {
         if (mediaList[i].id === mediaId && mediaList[i].resolutions) {
           var resolutions = mediaList[i].resolutions;
@@ -208,94 +207,127 @@ Page({
       }
     }
 
-    // Helper function to do the actual download (for direct URL downloads, e.g., images)
-    var doDownload = function(downloadUrl, mediaType, title) {
-      var self = this;
-      var extension = 'jpg';  // default for images
+    if (!url) return;
+
+    // Create task ID
+    var taskId = 'task_' + Date.now();
+
+    // Initialize download task in global data
+    app.addDownloadTask({
+      id: taskId,
+      url: url,
+      title: mediaTitle,
+      mediaType: mediaType,
+      status: 'downloading',
+      progress: '0 B / 0 B',
+      progressPercent: 0,
+      tempPath: '',
+      error: '',
+      createdAt: Date.now()
+    });
+
+    // Show toast and navigate to history
+    wx.showToast({
+      title: '开始下载',
+      icon: 'success'
+    });
+
+    // Helper function to save to album
+    var saveToAlbum = function(tempPath, mediaType, taskId) {
+      app.updateDownloadTask(taskId, { status: 'saving' });
+
       if (mediaType === 'VIDEO') {
-        extension = 'mp4';
+        wx.saveVideoToPhotosAlbum({
+          filePath: tempPath,
+          success: function() {
+            app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
+            wx.showToast({ title: '保存成功', icon: 'success' });
+          },
+          fail: function(err) {
+            var errorMsg = '保存失败';
+            if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+              errorMsg = '需要授权保存到相册';
+              wx.showModal({
+                title: '提示',
+                content: '需要授权保存到相册',
+                success: function(res) {
+                  if (res.confirm) {
+                    wx.openSetting();
+                  }
+                }
+              });
+            }
+            app.updateDownloadTask(taskId, { status: 'failed', error: errorMsg });
+            wx.showToast({ title: errorMsg, icon: 'none' });
+          }
+        });
+      } else {
+        wx.saveImageToPhotosAlbum({
+          filePath: tempPath,
+          success: function() {
+            app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
+            wx.showToast({ title: '保存成功', icon: 'success' });
+          },
+          fail: function(err) {
+            var errorMsg = '保存失败';
+            if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
+              errorMsg = '需要授权保存到相册';
+              wx.showModal({
+                title: '提示',
+                content: '需要授权保存到相册',
+                success: function(res) {
+                  if (res.confirm) {
+                    wx.openSetting();
+                  }
+                }
+              });
+            }
+            app.updateDownloadTask(taskId, { status: 'failed', error: errorMsg });
+            wx.showToast({ title: errorMsg, icon: 'none' });
+          }
+        });
       }
+    };
+
+    // Helper function to do the actual download
+    var doDownload = function(downloadUrl, mediaType, taskId) {
       var downloadTask = wx.downloadFile({
         url: downloadUrl,
         success: function(res) {
           console.log('Download success:', res);
-          self.setData({ downloading: false, downloadProgress: '' });
           var tempPath = res.tempFilePath;
-          if (mediaType === 'VIDEO') {
-            wx.saveVideoToPhotosAlbum({
-              filePath: tempPath,
-              success: function() {
-                wx.showToast({ title: '保存成功', icon: 'success' });
-              },
-              fail: function(err) {
-                console.log('Save video fail:', err);
-                if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-                  wx.showModal({
-                    title: '提示',
-                    content: '需要授权保存到相册',
-                    success: function(res) {
-                      if (res.confirm) {
-                        wx.openSetting();
-                      }
-                    }
-                  });
-                } else {
-                  wx.showToast({ title: '保存失败', icon: 'none' });
-                }
-              }
-            });
-          } else {
-            wx.saveImageToPhotosAlbum({
-              filePath: tempPath,
-              success: function() {
-                wx.showToast({ title: '保存成功', icon: 'success' });
-              },
-              fail: function(err) {
-                console.log('Save image fail:', err);
-                if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-                  wx.showModal({
-                    title: '提示',
-                    content: '需要授权保存到相册',
-                    success: function(res) {
-                      if (res.confirm) {
-                        wx.openSetting();
-                      }
-                    }
-                  });
-                } else {
-                  wx.showToast({ title: '保存失败', icon: 'none' });
-                }
-              }
-            });
-          }
+          app.updateDownloadTask(taskId, { tempPath: tempPath });
+          saveToAlbum(tempPath, mediaType, taskId);
         },
         fail: function(err) {
           console.log('Download fail:', err);
-          self.setData({ downloading: false, downloadProgress: '' });
+          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
           wx.showToast({ title: '下载失败', icon: 'none' });
         }
       });
 
-      // Register progress callback on the task
+      // Register progress callback
       downloadTask.onProgressUpdate(function(progressRes) {
-        console.log('Progress:', progressRes);
         var totalBytesWritten = progressRes.totalBytesWritten;
         var totalBytesExpectedToWrite = progressRes.totalBytesExpectedToWrite;
         var written = formatSize(totalBytesWritten);
         var total = formatSize(totalBytesExpectedToWrite);
         var progressStr = written + ' / ' + total;
-        self.setData({ downloadStatus: '下载中 ' + progressStr });
+        var percent = 0;
+        if (totalBytesExpectedToWrite > 0) {
+          percent = Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100);
+        }
+        app.updateDownloadTask(taskId, {
+          progress: progressStr,
+          progressPercent: percent
+        });
       });
     };
 
-    if (!url) return;
-
-    // Show download modal
-    this.setData({ downloading: true, downloadStatus: '获取链接...' });
-
-    // Check if URL needs to be resolved (for videos)
+    // Check if URL needs to be resolved
     if (url.indexOf('FORMAT:') === 0 && mediaId) {
-      // Need to resolve URL first
+      app.updateDownloadTask(taskId, { status: 'resolving', progress: '获取链接...' });
+
       var resolveUrl = app.globalData.apiBase + '/media/' + mediaId + '/download-url';
       if (formatId) {
         resolveUrl = resolveUrl + '?formatId=' + formatId;
@@ -303,104 +335,61 @@ Page({
 
       wx.request({
         url: resolveUrl,
-        success: (res) => {
+        success: function(res) {
           if (res.data && res.data.needsStreaming) {
-            // Need server-side streaming (for HLS streams)
-            this.setData({ downloadStatus: '下载视频...' });
+            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
+
             var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream.mp4';
             if (formatId) {
               streamUrl = streamUrl + '?formatId=' + formatId;
             }
-            var self = this;
-            // Use wx.downloadFile with onProgressUpdate for progress tracking
+
             var downloadTask = wx.downloadFile({
               url: streamUrl,
               success: function(res) {
                 console.log('Stream download success:', res);
-                self.setData({ downloading: false, downloadProgress: '' });
                 var tempPath = res.tempFilePath;
-                if (mediaType === 'VIDEO') {
-                  wx.saveVideoToPhotosAlbum({
-                    filePath: tempPath,
-                    success: function() {
-                      wx.showToast({ title: '保存成功', icon: 'success' });
-                    },
-                    fail: function(err) {
-                      console.log('Save video fail:', err);
-                      if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-                        wx.showModal({
-                          title: '提示',
-                          content: '需要授权保存到相册',
-                          success: function(res) {
-                            if (res.confirm) {
-                              wx.openSetting();
-                            }
-                          }
-                        });
-                      } else {
-                        wx.showToast({ title: '保存失败', icon: 'none' });
-                      }
-                    }
-                  });
-                } else {
-                  wx.saveImageToPhotosAlbum({
-                    filePath: tempPath,
-                    success: function() {
-                      wx.showToast({ title: '保存成功', icon: 'success' });
-                    },
-                    fail: function(err) {
-                      console.log('Save image fail:', err);
-                      if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-                        wx.showModal({
-                          title: '提示',
-                          content: '需要授权保存到相册',
-                          success: function(res) {
-                            if (res.confirm) {
-                              wx.openSetting();
-                            }
-                          }
-                        });
-                      } else {
-                        wx.showToast({ title: '保存失败', icon: 'none' });
-                      }
-                    }
-                  });
-                }
+                app.updateDownloadTask(taskId, { tempPath: tempPath });
+                saveToAlbum(tempPath, mediaType, taskId);
               },
               fail: function(err) {
                 console.log('Stream download fail:', err);
-                self.setData({ downloading: false, downloadProgress: '' });
+                app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
                 wx.showToast({ title: '下载失败', icon: 'none' });
               }
             });
 
-            // Register progress callback on the task
             downloadTask.onProgressUpdate(function(progressRes) {
-              console.log('Progress:', progressRes);
               var totalBytesWritten = progressRes.totalBytesWritten;
               var totalBytesExpectedToWrite = progressRes.totalBytesExpectedToWrite;
               var written = formatSize(totalBytesWritten);
               var total = formatSize(totalBytesExpectedToWrite);
               var progressStr = written + ' / ' + total;
-              self.setData({ downloadStatus: '下载中 ' + progressStr });
+              var percent = 0;
+              if (totalBytesExpectedToWrite > 0) {
+                percent = Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100);
+              }
+              app.updateDownloadTask(taskId, {
+                progress: progressStr,
+                progressPercent: percent
+              });
             });
           } else if (res.data && res.data.downloadUrl) {
-            this.setData({ downloading: false, downloadProgress: '' });
-            doDownload(res.data.downloadUrl, mediaType, mediaTitle);
+            doDownload(res.data.downloadUrl, mediaType, taskId);
           } else {
-            this.setData({ downloading: false, downloadProgress: '' });
+            app.updateDownloadTask(taskId, { status: 'failed', error: '获取链接失败' });
             wx.showToast({ title: '获取链接失败', icon: 'none' });
           }
         },
         fail: function() {
-          wx.hideLoading();
+          app.updateDownloadTask(taskId, { status: 'failed', error: '获取链接失败' });
           wx.showToast({ title: '获取链接失败', icon: 'none' });
         }
       });
     } else {
       // Direct URL, download directly
-      this.setData({ downloading: true, downloadStatus: '下载中...' });
-      doDownload(url, mediaType, mediaTitle);
+      app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载中...' });
+      doDownload(url, mediaType, taskId);
     }
   },
 
