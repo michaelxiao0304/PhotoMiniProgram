@@ -10,12 +10,15 @@
   </view>
 
   <view class="input-section">
-    <input
-      class="url-input"
-      placeholder="粘贴分享链接..."
-      bindinput="onUrlChange"
-      value="{{url}}"
-    />
+    <view class="input-wrapper">
+      <input
+        class="url-input"
+        placeholder="粘贴分享链接..."
+        bindinput="onUrlChange"
+        value="{{url}}"
+      />
+      <view class="clear-btn" bindtap="onClearUrl" wx:if="{{url}}">✕</view>
+    </view>
     <button
       class="parse-btn"
       bindtap="onParse"

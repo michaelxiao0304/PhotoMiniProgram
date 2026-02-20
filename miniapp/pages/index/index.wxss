@@ -52,9 +52,27 @@
   height: 80rpx;
   border: 1rpx solid #ddd;
   border-radius: 8rpx;
-  padding: 0 20rpx;
+  padding: 0 60rpx 0 20rpx;
   margin-bottom: 20rpx;
   box-sizing: border-box;
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 20rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
 }
 
 .parse-btn {

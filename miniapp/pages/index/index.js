@@ -54,6 +54,10 @@ Page({
     this.setData({ url: e.detail.value });
   },
 
+  onClearUrl: function() {
+    this.setData({ url: '', mediaList: [] });
+  },
+
   // 图片加载失败时使用占位图
   onImageError: function(e) {
     var mediaId = e.currentTarget.dataset.mediaId;
