@@ -80,7 +80,7 @@ Page({
         var seconds = date.getSeconds();
         var month = date.getMonth() + 1;
         var day = date.getDate();
-        tasks[i].createdAt = month + '-' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+        tasks[i].createdAt = month + '/' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
       }
     }
 
