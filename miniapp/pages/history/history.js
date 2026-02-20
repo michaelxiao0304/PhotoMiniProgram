@@ -271,6 +271,6 @@ Page({
     var seconds = date.getSeconds();
     var month = date.getMonth() + 1;
     var day = date.getDate();
-    return month + '-' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    return month + '/' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
   }
 });
