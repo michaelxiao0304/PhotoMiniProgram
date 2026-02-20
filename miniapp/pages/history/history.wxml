@@ -1,8 +1,7 @@
 <!--history.wxml-->
 <view class="container">
   <view class="header">
-    <text class="title">历史记录</text>
-    <text class="clear-btn" bindtap="onClearHistory" wx:if="{{historyList.length > 0 || hasDownloadTasks}}">清空</text>
+    <text class="title">任务列表</text>
   </view>
 
   <view class="loading" wx:if="{{loading}}">
@@ -10,13 +9,17 @@
   </view>
 
   <!-- Download Tasks Section -->
-  <view class="download-section" wx:if="{{hasDownloadTasks}}">
-    <view class="section-header">
-      <text class="section-title">下载任务</text>
-      <text class="clear-all-btn" bindtap="onClearAllTasks">清空</text>
+  <view class="section" wx:if="{{hasDownloadTasks || downloadTasks.length > 0}}">
+    <view class="section-header" bindtap="toggleTasks">
+      <view class="section-title-row">
+        <text class="expand-icon {{tasksExpanded ? 'expanded' : ''}}">▶</text>
+        <text class="section-title">下载任务</text>
+        <text class="section-count">({{downloadTasks.length}})</text>
+      </view>
+      <text class="clear-all-btn" catchtap="onClearAllTasks">清空</text>
     </view>
 
-    <scroll-view scroll-y="true" class="task-list">
+    <scroll-view scroll-y="true" class="task-list" wx:if="{{tasksExpanded}}">
       <block wx:for="{{downloadTasks}}" wx:key="id">
         <view class="task-item">
           <view class="task-header">
@@ -45,8 +48,8 @@
           <view class="task-footer">
             <text class="task-time">{{item.createdAt}}</text>
             <view class="task-actions">
-              <text class="task-btn retry" wx:if="{{item.status === 'failed'}}" bindtap="onRetryDownload" data-task-id="{{item.id}}">重试</text>
-              <text class="task-btn remove" bindtap="onClearTask" data-task-id="{{item.id}}">移除</text>
+              <text class="task-btn retry" wx:if="{{item.status === 'failed'}}" catchtap="onRetryDownload" data-task-id="{{item.id}}">重试</text>
+              <text class="task-btn remove" catchtap="onClearTask" data-task-id="{{item.id}}">移除</text>
             </view>
           </view>
         </view>
@@ -54,29 +57,42 @@
     </scroll-view>
   </view>
 
-  <view class="empty" wx:if="{{empty && !loading && !hasDownloadTasks}}">
-    <text>暂无历史记录</text>
-  </view>
+  <!-- History Section -->
+  <view class="section">
+    <view class="section-header" bindtap="toggleHistory">
+      <view class="section-title-row">
+        <text class="expand-icon {{historyExpanded ? 'expanded' : ''}}">▶</text>
+        <text class="section-title">历史记录</text>
+        <text class="section-count">({{historyList.length}})</text>
+      </view>
+      <text class="clear-all-btn" catchtap="onClearHistory" wx:if="{{historyList.length > 0}}">清空</text>
+    </view>
 
-  <!-- History List -->
-  <scroll-view scroll-y="true" class="history-list" wx:if="{{historyList.length > 0}}">
-    <block wx:for="{{historyList}}" wx:key="id">
-      <view class="history-item">
-        <view class="item-header">
-          <text class="platform">{{item.platform}}</text>
-          <text class="time">{{item.timestamp}}</text>
-        </view>
-        <view class="item-content">
-          <text class="url" selectable="true">{{item.url}}</text>
-        </view>
-        <view class="item-footer">
-          <text class="media-count">{{item.mediaCount}} 个媒体</text>
-          <view class="actions">
-            <text class="action-btn copy" bindtap="onCopyUrl" data-url="{{item.url}}">复制</text>
-            <text class="action-btn use" bindtap="onUseUrl" data-url="{{item.url}}">使用</text>
+    <scroll-view scroll-y="true" class="history-list" wx:if="{{historyExpanded}}">
+      <view class="empty" wx:if="{{historyList.length === 0}}">
+        <text>暂无历史记录</text>
+      </view>
+      <block wx:for="{{historyList}}" wx:key="id">
+        <view class="history-item">
+          <view class="item-header">
+            <text class="platform">{{item.platform}}</text>
+            <text class="time">{{item.timestamp}}</text>
+          </view>
+          <view class="item-content" wx:if="{{item.title}}">
+            <text class="title">{{item.title}}</text>
+          </view>
+          <view class="item-content">
+            <text class="url" selectable="true">{{item.url}}</text>
+          </view>
+          <view class="item-footer">
+            <text class="media-count">{{item.mediaCount || 1}} 个媒体</text>
+            <view class="actions">
+              <text class="action-btn copy" catchtap="onCopyUrl" data-url="{{item.url}}">复制</text>
+              <text class="action-btn use" catchtap="onUseUrl" data-url="{{item.url}}">使用</text>
+            </view>
           </view>
         </view>
-      </view>
-    </block>
-  </scroll-view>
+      </block>
+    </scroll-view>
+  </view>
 </view>

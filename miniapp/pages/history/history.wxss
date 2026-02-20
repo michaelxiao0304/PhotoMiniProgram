@@ -5,9 +5,6 @@
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 30rpx;
   background-color: #fff;
   border-bottom: 1rpx solid #eee;
@@ -68,6 +65,13 @@
   margin-bottom: 16rpx;
 }
 
+.item-content .title {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+}
+
 .url {
   font-size: 26rpx;
   color: #333;
@@ -108,7 +112,7 @@
 }
 
 /* Download Tasks Styles */
-.download-section {
+.section {
   background-color: #fff;
   margin-bottom: 20rpx;
 }
@@ -119,12 +123,35 @@
   align-items: center;
   padding: 24rpx 30rpx;
   border-bottom: 1rpx solid #eee;
+  background-color: #fff;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.expand-icon {
+  font-size: 24rpx;
+  color: #999;
+  margin-right: 12rpx;
+  transition: transform 0.2s;
+}
+
+.expand-icon.expanded {
+  transform: rotate(90deg);
 }
 
 .section-title {
   font-size: 32rpx;
   font-weight: bold;
   color: #333;
+}
+
+.section-count {
+  font-size: 28rpx;
+  color: #999;
+  margin-left: 8rpx;
 }
 
 .clear-all-btn {

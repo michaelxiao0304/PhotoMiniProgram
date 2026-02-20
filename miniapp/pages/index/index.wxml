@@ -5,7 +5,7 @@
       <text class="subtitle">支持 Twitter / Instagram / TikTok</text>
     </view>
     <view class="header-right" bindtap="goToHistory">
-      <text class="history-btn">历史</text>
+      <text class="history-btn">任务列表</text>
     </view>
   </view>
 

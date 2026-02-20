@@ -7,12 +7,26 @@ Page({
     downloadTasks: [],
     loading: false,
     empty: true,
-    hasDownloadTasks: false
+    hasDownloadTasks: false,
+    tasksExpanded: true,
+    historyExpanded: true
   },
 
   onLoad: function() {
     this.loadHistory();
     this.startPolling();
+  },
+
+  toggleTasks: function() {
+    this.setData({
+      tasksExpanded: !this.data.tasksExpanded
+    });
+  },
+
+  toggleHistory: function() {
+    this.setData({
+      historyExpanded: !this.data.historyExpanded
+    });
   },
 
   onShow: function() {
@@ -69,8 +83,9 @@ Page({
   loadDownloadTasks: function() {
     var self = this;
     var tasks = app.getAllDownloadTasks();
+    var completedTasks = [];
 
-    // Format timestamps
+    // Format timestamps and check for completed tasks
     for (var i = 0; i < tasks.length; i++) {
       var timestamp = tasks[i].createdAt;
       if (timestamp) {
@@ -82,6 +97,16 @@ Page({
         var day = date.getDate();
         tasks[i].createdAt = month + '/' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
       }
+
+      // Collect completed tasks to move to history
+      if (tasks[i].status === 'completed') {
+        completedTasks.push(tasks[i]);
+      }
+    }
+
+    // Move completed tasks to history
+    if (completedTasks.length > 0) {
+      this.moveCompletedToHistory(completedTasks);
     }
 
     var hasTasks = tasks.length > 0;
@@ -92,6 +117,63 @@ Page({
         downloadTasks: tasks,
         hasDownloadTasks: hasTasks,
         empty: !hasTasks && self.data.historyList.length === 0
+      });
+    }
+  },
+
+  moveCompletedToHistory: function(completedTasks) {
+    var self = this;
+    var historyList = this.data.historyList;
+
+    // Add completed tasks to local history list
+    for (var i = 0; i < completedTasks.length; i++) {
+      var task = completedTasks[i];
+      // Determine platform from URL
+      var platform = 'Unknown';
+      var url = task.url || '';
+      if (url.indexOf('twitter.com') !== -1 || url.indexOf('x.com') !== -1) {
+        platform = 'Twitter';
+      } else if (url.indexOf('instagram.com') !== -1) {
+        platform = 'Instagram';
+      } else if (url.indexOf('tiktok.com') !== -1) {
+        platform = 'TikTok';
+      }
+
+      var historyItem = {
+        id: task.id,
+        url: url,
+        platform: platform,
+        timestamp: task.createdAt,
+        mediaCount: 1,
+        title: task.title || ''
+      };
+
+      // Add to beginning of list
+      historyList.unshift(historyItem);
+
+      // Remove from download tasks
+      app.removeDownloadTask(task.id);
+    }
+
+    // Update local history list
+    this.setData({
+      historyList: historyList
+    });
+
+    // Optionally save to backend
+    for (var j = 0; j < completedTasks.length; j++) {
+      var item = completedTasks[j];
+      wx.request({
+        url: app.globalData.apiBase + '/history',
+        method: 'POST',
+        data: {
+          url: item.url,
+          platform: item.url.indexOf('twitter') !== -1 ? 'Twitter' : item.url.indexOf('instagram') !== -1 ? 'Instagram' : item.url.indexOf('tiktok') !== -1 ? 'TikTok' : 'Unknown',
+          title: item.title || ''
+        },
+        fail: function() {
+          // Silently fail, local list is already updated
+        }
       });
     }
   },
