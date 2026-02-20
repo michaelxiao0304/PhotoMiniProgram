@@ -3,7 +3,7 @@ App({
     // 检查系统权限
   },
   globalData: {
-    apiBase: 'http://localhost:9080/api',
+    apiBase: 'http://43.165.166.249:9080/api',
     downloadTasks: {}
   },
 
