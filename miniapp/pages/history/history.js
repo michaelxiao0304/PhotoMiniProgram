@@ -90,12 +90,13 @@ Page({
       var timestamp = tasks[i].createdAt;
       if (timestamp) {
         var date = new Date(timestamp);
+        var year = date.getFullYear();
         var hours = date.getHours();
         var minutes = date.getMinutes();
         var seconds = date.getSeconds();
         var month = date.getMonth() + 1;
         var day = date.getDate();
-        tasks[i].createdAt = month + '/' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+        tasks[i].createdAt = year + '-' + (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day + ' ' + (hours < 10 ? '0' : '') + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
       }
 
       // Collect completed tasks to move to history
@@ -274,11 +275,12 @@ Page({
   formatTime: function(timestamp) {
     if (!timestamp) return '';
     var date = new Date(timestamp);
+    var year = date.getFullYear();
     var hours = date.getHours();
     var minutes = date.getMinutes();
     var seconds = date.getSeconds();
     var month = date.getMonth() + 1;
     var day = date.getDate();
-    return month + '/' + day + ' ' + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    return year + '-' + (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day + ' ' + (hours < 10 ? '0' : '') + hours + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
   }
 });
