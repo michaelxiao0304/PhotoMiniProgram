@@ -32,6 +32,7 @@
 
 .history-list {
   padding: 20rpx;
+  box-sizing: border-box;
 }
 
 .history-item {
@@ -162,6 +163,7 @@
 .task-list {
   padding: 20rpx;
   max-height: 50vh;
+  box-sizing: border-box;
 }
 
 .task-item {
