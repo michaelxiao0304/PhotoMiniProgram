@@ -140,8 +140,31 @@ Page({
       // Use originalUrl if available, otherwise use current URL
       var url = task.originalUrl || task.url || '';
       // If URL is still FORMAT:xxx, use title as fallback
-      if (url.indexOf('FORMAT:') === 0) {
+      if (url && url.indexOf('FORMAT:') === 0) {
         url = task.title || '';
+      }
+
+      // Skip if URL is empty
+      if (!url) {
+        app.removeDownloadTask(task.id);
+        continue;
+      }
+
+      // Check for duplicate - update timestamp if exists
+      var exists = false;
+      for (var j = 0; j < historyList.length; j++) {
+        if (historyList[j].url === url) {
+          // Update timestamp and move to top
+          historyList[j].timestamp = task.createdAt;
+          historyList.unshift(historyList.splice(j, 1)[0]);
+          exists = true;
+          break;
+        }
+      }
+
+      if (exists) {
+        app.removeDownloadTask(task.id);
+        continue;
       }
 
       // Determine platform from URL
