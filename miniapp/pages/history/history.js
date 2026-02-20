@@ -107,6 +107,14 @@ Page({
     // Move completed tasks to history
     if (completedTasks.length > 0) {
       this.moveCompletedToHistory(completedTasks);
+      // Filter out completed tasks from downloadTasks
+      var remainingTasks = [];
+      for (var j = 0; j < tasks.length; j++) {
+        if (tasks[j].status !== 'completed') {
+          remainingTasks.push(tasks[j]);
+        }
+      }
+      tasks = remainingTasks;
     }
 
     var hasTasks = tasks.length > 0;
