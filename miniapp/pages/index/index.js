@@ -220,7 +220,7 @@ Page({
     app.addDownloadTask({
       id: taskId,
       url: url,
-      originalUrl: url.indexOf('FORMAT:') === 0 ? '' : url,  // 保存原始分享链接
+      originalUrl: this.data.url || '',  // 保存原始分享链接
       title: mediaTitle,
       mediaType: mediaType,
       status: 'downloading',
