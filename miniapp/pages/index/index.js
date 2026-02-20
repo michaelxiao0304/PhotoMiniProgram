@@ -216,6 +216,7 @@ Page({
     app.addDownloadTask({
       id: taskId,
       url: url,
+      originalUrl: url.indexOf('FORMAT:') === 0 ? '' : url,  // 保存原始分享链接
       title: mediaTitle,
       mediaType: mediaType,
       status: 'downloading',
@@ -337,7 +338,7 @@ Page({
         url: resolveUrl,
         success: function(res) {
           if (res.data && res.data.needsStreaming) {
-            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
+            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...', originalUrl: '' });
 
             var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream.mp4';
             if (formatId) {

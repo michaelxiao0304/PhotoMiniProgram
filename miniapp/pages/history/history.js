@@ -128,9 +128,15 @@ Page({
     // Add completed tasks to local history list
     for (var i = 0; i < completedTasks.length; i++) {
       var task = completedTasks[i];
+      // Use originalUrl if available, otherwise use current URL
+      var url = task.originalUrl || task.url || '';
+      // If URL is still FORMAT:xxx, use title as fallback
+      if (url.indexOf('FORMAT:') === 0) {
+        url = task.title || '';
+      }
+
       // Determine platform from URL
       var platform = 'Unknown';
-      var url = task.url || '';
       if (url.indexOf('twitter.com') !== -1 || url.indexOf('x.com') !== -1) {
         platform = 'Twitter';
       } else if (url.indexOf('instagram.com') !== -1) {
@@ -159,23 +165,6 @@ Page({
     this.setData({
       historyList: historyList
     });
-
-    // Optionally save to backend
-    for (var j = 0; j < completedTasks.length; j++) {
-      var item = completedTasks[j];
-      wx.request({
-        url: app.globalData.apiBase + '/history',
-        method: 'POST',
-        data: {
-          url: item.url,
-          platform: item.url.indexOf('twitter') !== -1 ? 'Twitter' : item.url.indexOf('instagram') !== -1 ? 'Instagram' : item.url.indexOf('tiktok') !== -1 ? 'TikTok' : 'Unknown',
-          title: item.title || ''
-        },
-        fail: function() {
-          // Silently fail, local list is already updated
-        }
-      });
-    }
   },
 
   onCopyUrl: function(e) {
