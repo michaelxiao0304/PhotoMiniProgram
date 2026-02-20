@@ -408,5 +408,15 @@ Page({
     wx.navigateTo({
       url: '/pages/history/history'
     });
+  },
+
+  onCopyTitle: function(e) {
+    var title = e.currentTarget.dataset.title;
+    wx.setClipboardData({
+      data: title,
+      success: function() {
+        wx.showToast({ title: '已复制', icon: 'success' });
+      }
+    });
   }
 });

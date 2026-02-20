@@ -87,11 +87,26 @@
 .media-title {
   font-size: 28rpx;
   color: #333;
-  display: block;
-  margin-bottom: 12rpx;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.media-title-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.copy-btn {
+  font-size: 24rpx;
+  color: #07c160;
+  padding: 4rpx 16rpx;
+  border: 1rpx solid #07c160;
+  border-radius: 8rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
 }
 
 .media-type {

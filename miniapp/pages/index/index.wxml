@@ -37,7 +37,10 @@
           data-media-id="{{item.id}}"
         />
         <view class="media-info">
-          <text class="media-title" wx:if="{{item.title}}">{{item.title}}</text>
+          <view class="media-title-row" wx:if="{{item.title}}">
+            <text class="media-title">{{item.title}}</text>
+            <view class="copy-btn" catchtap="onCopyTitle" data-title="{{item.title}}">复制</view>
+          </view>
           <text class="media-type">{{item.type === 'VIDEO' ? '视频' : '图片'}}</text>
           <text class="media-resolution" wx:if="{{item.resolution}}">{{item.resolution}}</text>
           <view wx:if="{{item.resolutions}}" class="resolution-selector">

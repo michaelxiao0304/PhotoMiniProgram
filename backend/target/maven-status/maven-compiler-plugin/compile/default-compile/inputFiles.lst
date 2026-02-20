@@ -1,5 +1,9 @@
 /home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/PhotoMiniProgramApplication.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/HistoryRecord.java
 /home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/ParseResult.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/dto/ParseRequest.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/ResolutionOption.java
+/home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/controller/MediaController.java
 /home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/service/YtDlpService.java
 /home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/MediaInfo.java
 /home/ubuntu/Code/PhotoMiniProgram/backend/src/main/java/com/photomini/model/MediaType.java
