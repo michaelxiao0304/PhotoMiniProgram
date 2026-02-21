@@ -3,6 +3,11 @@ spring:
     restart:
       enabled: true
 
+# 微信小程序配置
+wechat:
+  appid: wxbd661c79c124a303
+  secret: 5a2a4b6acbf2da6fc12be68f29dfa914
+
 logging:
   level:
     com.photomini: DEBUG
