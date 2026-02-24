@@ -725,6 +725,9 @@ public class YtDlpService {
 
                 // Extract formats from the media node
                 JsonNode formatsNode = mediaNode.path("formats");
+                JsonNode durationNode = mediaNode.path("duration");
+                double videoDuration = durationNode.isMissingNode() ? 0 : durationNode.asDouble();
+
                 lastResolutions = new ArrayList<>();
                 java.util.Map<String, ResolutionOption> resolutionMap = new java.util.LinkedHashMap<>();
                 String bestFormatId = null;
@@ -755,8 +758,13 @@ public class YtDlpService {
                             resolution = resMatcher.group(2) + "p";
                         }
 
-                        // Estimate file size from bitrate (assume 10 seconds)
-                        String size = formatFileSize(bitrate * 10 / 8);
+                        // Calculate file size: bitrate (bps) * duration (seconds) / 8 = bytes
+                        // FxTwitter bitrate is in bps, duration is in seconds
+                        long estimatedSize = 0;
+                        if (videoDuration > 0 && bitrate > 0) {
+                            estimatedSize = (long) ((long) bitrate * videoDuration / 8.0);
+                        }
+                        String size = estimatedSize > 0 ? formatFileSize(estimatedSize) : "Unknown";
 
                         // Only keep best bitrate for each resolution
                         ResolutionOption existing = resolutionMap.get(resolution);
@@ -767,7 +775,7 @@ public class YtDlpService {
                             option.setLabel(resolution);
                             option.setSize(size);
                             resolutionMap.put(resolution, option);
-                            logger.info("Found format: {} {} {}", resolution, size, formatUrl);
+                            logger.info("Found format: {} {} {} (duration: {}s, bitrate: {})", resolution, size, formatUrl, videoDuration, bitrate);
                         }
 
                         // Track best quality overall
