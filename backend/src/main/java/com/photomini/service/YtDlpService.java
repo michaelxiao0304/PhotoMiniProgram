@@ -795,6 +795,19 @@ public class YtDlpService {
                         return heightB - heightA;
                     });
 
+                    // Try to get actual file size from the video URL
+                    for (ResolutionOption option : lastResolutions) {
+                        try {
+                            String actualSize = getActualFileSize(option.getFormatId());
+                            if (actualSize != null) {
+                                option.setSize(actualSize);
+                                logger.info("Got actual file size for {}: {}", option.getLabel(), actualSize);
+                            }
+                        } catch (Exception e) {
+                            logger.warn("Could not get file size for {}: {}", option.getLabel(), e.getMessage());
+                        }
+                    }
+
                     String videoUrl = bestFormatId;
                     logger.info("Found Twitter video via FxTwitter: {} with {} formats", videoUrl, lastResolutions.size());
                     return videoUrl;
@@ -900,6 +913,51 @@ public class YtDlpService {
         }
         // Already in watch format
         return url;
+    }
+
+    /**
+     * Get actual file size from URL by checking Content-Length header
+     */
+    private String getActualFileSize(String url) {
+        try {
+            List<String> command = new ArrayList<>();
+            command.add("/usr/bin/curl");
+            command.add("-sI");
+            command.add("--max-time");
+            command.add("30");
+            command.add(url);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return null;
+            }
+
+            String response = output.toString();
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "(?i)content-length:\\s*(\\d+)");
+            java.util.regex.Matcher m = p.matcher(response);
+            if (m.find()) {
+                long size = Long.parseLong(m.group(1));
+                return formatFileSize(size);
+            }
+        } catch (Exception e) {
+            logger.debug("Error getting file size: {}", e.getMessage());
+        }
+        return null;
     }
 
     /**
