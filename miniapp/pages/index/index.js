@@ -371,62 +371,6 @@ Page({
       doSave();
     };
 
-    // Helper function to download large files using wx.request (for files > 20MB)
-    var downloadLargeFile = function(downloadUrl, mediaType, taskId) {
-      var fs = wx.getFileSystemManager();
-      var filename = 'video_' + Date.now() + '.mp4';
-      if (mediaType !== 'VIDEO') {
-        filename = 'image_' + Date.now() + '.jpg';
-      }
-      var destPath = wx.env.USER_DATA_PATH + '/' + filename;
-
-      app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载中...' });
-
-      wx.request({
-        url: downloadUrl,
-        responseType: 'arraybuffer',
-        success: function(res) {
-          console.log('Large file download success:', res.statusCode);
-          if (res.statusCode !== 200) {
-            app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-            wx.showToast({ title: '下载失败: ' + res.statusCode, icon: 'none' });
-            return;
-          }
-
-          var buffer = res.data;
-          app.updateDownloadTask(taskId, { status: 'saving', progress: '保存中...' });
-
-          fs.writeFile({
-            filePath: destPath,
-            data: buffer,
-            encoding: 'binary',
-            success: function() {
-              console.log('File saved to:', destPath);
-              app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件', tempPath: destPath });
-              wx.showModal({
-                title: '下载完成',
-                content: '文件已保存到: ' + filename + '\n\n请在微信"我-设置-通用-存储空间"中查看，或通过文件管理器导出。',
-                showCancel: false,
-                confirmText: '知道了'
-              });
-            },
-            fail: function(err) {
-              console.log('Write file fail:', err);
-              var errMsg = err.errMsg || '未知错误';
-              app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败: ' + errMsg });
-              wx.showToast({ title: '保存失败: ' + errMsg, icon: 'none', duration: 3000 });
-            }
-          });
-        },
-        fail: function(err) {
-          console.log('Large file download fail:', err);
-          var errMsg = err.errMsg || '未知错误';
-          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败: ' + errMsg });
-          wx.showToast({ title: '下载失败: ' + errMsg, icon: 'none', duration: 3000 });
-        }
-      });
-    };
-
     // Helper function to do the actual download
     var doDownload = function(downloadUrl, mediaType, taskId) {
       var downloadTask = wx.downloadFile({
@@ -439,15 +383,9 @@ Page({
         },
         fail: function(err) {
           console.log('Download fail:', err);
-          var errMsg = err.errMsg || '';
-          // If file too large, try using wx.request instead
-          if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
-            console.log('File too large, trying wx.request...');
-            downloadLargeFile(downloadUrl, mediaType, taskId);
-          } else {
-            app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-            wx.showToast({ title: '下载失败', icon: 'none' });
-          }
+          var errMsg = err.errMsg || '未知错误';
+          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败: ' + errMsg });
+          wx.showToast({ title: '下载失败: ' + errMsg, icon: 'none', duration: 3000 });
         }
       });
 
@@ -491,55 +429,64 @@ Page({
             // Check file size to decide download method
             var fileSize = res.data.fileSize || '';
             var isLargeFile = fileSize.indexOf('MB') !== -1 && parseFloat(fileSize) > 20;
-            var isVeryLargeFile = fileSize.indexOf('GB') !== -1 || (fileSize.indexOf('MB') !== -1 && parseFloat(fileSize) > 50);
 
             app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
 
-            // For large files (>20MB), use wx.downloadFile with filePath (writes to disk directly)
-            // This bypasses the 20MB temp file limit
+            // For large files (>20MB), use wx.request with long timeout
             if (isLargeFile) {
               var fs = wx.getFileSystemManager();
               var filename = 'video_' + Date.now() + '.mp4';
               var destPath = wx.env.USER_DATA_PATH + '/' + filename;
 
-              console.log('Large file detected (' + fileSize + '), using filePath...');
+              console.log('Large file detected (' + fileSize + '), using wx.request...');
 
-              var downloadTask = wx.downloadFile({
+              // No fixed timeout - let it download as long as needed
+              wx.request({
                 url: streamUrl,
-                filePath: destPath,  // Write directly to file system
-                success: function(res) {
-                  console.log('Large file download success:', res);
-                  app.updateDownloadTask(taskId, { tempPath: res.filePath, status: 'saving' });
-                  // For large files, just show success - don't try to save to album
-                  app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件' });
-                  wx.showModal({
-                    title: '下载完成',
-                    content: '文件已保存到: ' + filename + '\n\n请在微信"我-设置-通用-存储空间"中查看导出。',
-                    showCancel: false,
-                    confirmText: '知道了'
+                responseType: 'arraybuffer',
+                success: function(dlRes) {
+                  console.log('Large file download success:', dlRes.statusCode);
+                  if (dlRes.statusCode !== 200) {
+                    app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败: HTTP ' + dlRes.statusCode });
+                    wx.showToast({ title: '下载失败: ' + dlRes.statusCode, icon: 'none' });
+                    return;
+                  }
+
+                  app.updateDownloadTask(taskId, { status: 'saving', progress: '保存中...' });
+
+                  fs.writeFile({
+                    filePath: destPath,
+                    data: dlRes.data,
+                    encoding: 'binary',
+                    success: function() {
+                      console.log('File saved to:', destPath);
+                      app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件', tempPath: destPath });
+                      wx.showModal({
+                        title: '下载完成',
+                        content: '文件已保存到: ' + filename + '\n\n请在微信"我-设置-通用-存储空间"中查看导出。',
+                        showCancel: false,
+                        confirmText: '知道了'
+                      });
+                    },
+                    fail: function(err) {
+                      console.log('Write file fail:', err);
+                      var errMsg = err.errMsg || '未知错误';
+                      app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败: ' + errMsg });
+                      wx.showToast({ title: '保存失败: ' + errMsg, icon: 'none', duration: 3000 });
+                    }
                   });
                 },
                 fail: function(err) {
                   console.log('Large file download fail:', err);
-                  app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-                  wx.showToast({ title: '下载失败', icon: 'none' });
+                  var errMsg = err.errMsg || '未知错误';
+                  app.updateDownloadTask(taskId, { status: 'failed', error: '下载超时' });
+                  wx.showModal({
+                    title: '下载超时',
+                    content: '文件较大(' + fileSize + ')，下载时间过长。请尝试选择更小的分辨率。',
+                    showCancel: false,
+                    confirmText: '知道了'
+                  });
                 }
-              });
-
-              downloadTask.onProgressUpdate(function(progressRes) {
-                var totalBytesWritten = progressRes.totalBytesWritten;
-                var totalBytesExpectedToWrite = progressRes.totalBytesExpectedToWrite;
-                var written = formatSize(totalBytesWritten);
-                var total = formatSize(totalBytesExpectedToWrite);
-                var progressStr = written + ' / ' + total;
-                var percent = 0;
-                if (totalBytesExpectedToWrite > 0) {
-                  percent = Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100);
-                }
-                app.updateDownloadTask(taskId, {
-                  progress: progressStr,
-                  progressPercent: percent
-                });
               });
               return;
             }
