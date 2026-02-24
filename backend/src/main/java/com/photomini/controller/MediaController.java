@@ -16,9 +16,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -293,12 +295,16 @@ public class MediaController {
             headers.setContentDispositionFormData("attachment", filename);
 
             Path tempFile = ytDlpService.downloadMedia(sourceUrlFinal, formatSelectorFinal, filename);
-            byte[] fileContent = Files.readAllBytes(tempFile);
+            long fileSize = Files.size(tempFile);
+            InputStream inputStream = Files.newInputStream(tempFile);
+
+            // Delete temp file after opening stream (file will be deleted when stream is closed)
             Files.deleteIfExists(tempFile);
 
             return ResponseEntity.ok()
                     .headers(headers)
-                    .body(fileContent);
+                    .contentLength(fileSize)
+                    .body(new InputStreamResource(inputStream));
 
         } catch (Exception e) {
             logger.error("Failed to stream media: {}", e.getMessage());
