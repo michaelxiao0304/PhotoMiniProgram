@@ -4,6 +4,7 @@ import com.photomini.dto.ParseRequest;
 import com.photomini.model.HistoryRecord;
 import com.photomini.model.MediaInfo;
 import com.photomini.model.ParseResult;
+import com.photomini.model.ResolutionOption;
 import com.photomini.service.YtDlpService;
 
 import java.security.MessageDigest;
@@ -212,6 +213,16 @@ public class MediaController {
             response.put("downloadUrl", isVideo ? null : resolvedUrl);
             response.put("needsStreaming", needsStreaming);
             response.put("formatId", formatId);
+
+            // Add file size estimate for videos
+            if (isVideo && media.getResolutions() != null) {
+                for (ResolutionOption res : media.getResolutions()) {
+                    if (formatId != null && formatId.equals(res.getFormatId())) {
+                        response.put("fileSize", res.getSize());
+                        break;
+                    }
+                }
+            }
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

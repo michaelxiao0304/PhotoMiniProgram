@@ -412,15 +412,17 @@ Page({
             },
             fail: function(err) {
               console.log('Write file fail:', err);
-              app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
-              wx.showToast({ title: '保存失败', icon: 'none' });
+              var errMsg = err.errMsg || '未知错误';
+              app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败: ' + errMsg });
+              wx.showToast({ title: '保存失败: ' + errMsg, icon: 'none', duration: 3000 });
             }
           });
         },
         fail: function(err) {
           console.log('Large file download fail:', err);
-          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-          wx.showToast({ title: '下载失败', icon: 'none' });
+          var errMsg = err.errMsg || '未知错误';
+          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败: ' + errMsg });
+          wx.showToast({ title: '下载失败: ' + errMsg, icon: 'none', duration: 3000 });
         }
       });
     };
@@ -481,13 +483,68 @@ Page({
         url: resolveUrl,
         success: function(res) {
           if (res.data && res.data.needsStreaming) {
-            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
-
             var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream.mp4';
             if (formatId) {
               streamUrl = streamUrl + '?formatId=' + encodeURIComponent(formatId);
             }
 
+            // Check file size to decide download method
+            var fileSize = res.data.fileSize || '';
+            var isLargeFile = fileSize.indexOf('MB') !== -1 && parseFloat(fileSize) > 20;
+            var isVeryLargeFile = fileSize.indexOf('GB') !== -1 || (fileSize.indexOf('MB') !== -1 && parseFloat(fileSize) > 50);
+
+            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
+
+            // For large files (>20MB), use wx.downloadFile with filePath (writes to disk directly)
+            // This bypasses the 20MB temp file limit
+            if (isLargeFile) {
+              var fs = wx.getFileSystemManager();
+              var filename = 'video_' + Date.now() + '.mp4';
+              var destPath = wx.env.USER_DATA_PATH + '/' + filename;
+
+              console.log('Large file detected (' + fileSize + '), using filePath...');
+
+              var downloadTask = wx.downloadFile({
+                url: streamUrl,
+                filePath: destPath,  // Write directly to file system
+                success: function(res) {
+                  console.log('Large file download success:', res);
+                  app.updateDownloadTask(taskId, { tempPath: res.filePath, status: 'saving' });
+                  // For large files, just show success - don't try to save to album
+                  app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件' });
+                  wx.showModal({
+                    title: '下载完成',
+                    content: '文件已保存到: ' + filename + '\n\n请在微信"我-设置-通用-存储空间"中查看导出。',
+                    showCancel: false,
+                    confirmText: '知道了'
+                  });
+                },
+                fail: function(err) {
+                  console.log('Large file download fail:', err);
+                  app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
+                  wx.showToast({ title: '下载失败', icon: 'none' });
+                }
+              });
+
+              downloadTask.onProgressUpdate(function(progressRes) {
+                var totalBytesWritten = progressRes.totalBytesWritten;
+                var totalBytesExpectedToWrite = progressRes.totalBytesExpectedToWrite;
+                var written = formatSize(totalBytesWritten);
+                var total = formatSize(totalBytesExpectedToWrite);
+                var progressStr = written + ' / ' + total;
+                var percent = 0;
+                if (totalBytesExpectedToWrite > 0) {
+                  percent = Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100);
+                }
+                app.updateDownloadTask(taskId, {
+                  progress: progressStr,
+                  progressPercent: percent
+                });
+              });
+              return;
+            }
+
+            // For small files (<=20MB), use regular downloadFile
             var downloadTask = wx.downloadFile({
               url: streamUrl,
               success: function(res) {
@@ -498,15 +555,9 @@ Page({
               },
               fail: function(err) {
                 console.log('Stream download fail:', err);
-                var errMsg = err.errMsg || '';
-                // If file too large, try using wx.request instead
-                if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
-                  console.log('File too large, trying wx.request...');
-                  downloadLargeFile(streamUrl, mediaType, taskId);
-                } else {
-                  app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-                  wx.showToast({ title: '下载失败', icon: 'none' });
-                }
+                var errMsg = err.errMsg || '未知错误';
+                app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败: ' + errMsg });
+                wx.showToast({ title: '下载失败: ' + errMsg, icon: 'none', duration: 3000 });
               }
             });
 
