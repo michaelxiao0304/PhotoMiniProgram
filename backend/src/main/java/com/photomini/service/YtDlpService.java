@@ -40,6 +40,10 @@ public class YtDlpService {
     @Value("${yt-dlp.cookies-file:}")
     private String cookiesFile;
 
+    // Store parsed data from FxTwitter API for fallback results
+    private String lastThumbnailUrl;
+    private List<ResolutionOption> lastResolutions;
+
     public YtDlpService() {
         // Default constructor for tests
     }
@@ -153,31 +157,25 @@ public class YtDlpService {
                         MediaInfo media = new MediaInfo();
                         media.setId(result.getSessionId() + "_0");
                         media.setType(MediaType.VIDEO);
-                        media.setDownloadUrl(embeddedUrl);
                         media.setThumbnailUrl(lastThumbnailUrl); // Use thumbnail from FxTwitter API
+                        media.setResolutions(lastResolutions); // Use formats from FxTwitter
 
-                        // Try to get video info
-                        try {
-                            List<String> cmd = new ArrayList<>();
-                            cmd.add(ytDlpCommand);
-                            cmd.add("--dump-json");
-                            cmd.add("--no-download");
-                            cmd.add(embeddedUrl);
-                            String jsonOutput = executeCommand(cmd, 30);
-
-                            if (jsonOutput != null && !jsonOutput.isEmpty()) {
-                                JsonNode videoJson = objectMapper.readTree(jsonOutput);
-                                if (videoJson.has("title")) {
-                                    result.setTitle("[Twitter] " + videoJson.get("title").asText());
-                                }
-                                if (videoJson.has("duration")) {
-                                    // Could set duration if needed
-                                }
-                            }
-                        } catch (Exception ex) {
-                            logger.warn("Could not get video info: {}", ex.getMessage());
-                            result.setTitle("[Twitter Video]");
+                        // Set default resolution to highest quality
+                        if (lastResolutions != null && !lastResolutions.isEmpty()) {
+                            media.setDefaultResolution(lastResolutions.get(0).getLabel());
+                            // Use the best format URL as download URL
+                            media.setDownloadUrl(lastResolutions.get(0).getFormatId());
+                            // Set width/height from resolution
+                            String label = lastResolutions.get(0).getLabel();
+                            int height = parseHeight(label);
+                            media.setHeight(height);
+                            media.setWidth((int) (height * 16.0 / 9)); // Assume 16:9 aspect ratio
+                            media.setResolution(media.getWidth() + "x" + height);
+                        } else {
+                            media.setDownloadUrl(embeddedUrl);
                         }
+
+                        result.setTitle("[Twitter Video]");
 
                         List<MediaInfo> mediaList = new ArrayList<>();
                         mediaList.add(media);
@@ -663,11 +661,9 @@ public class YtDlpService {
      * @param twitterUrl the Twitter URL to extract from
      * @return the extracted external URL (YouTube/TikTok) or null if not found
      */
-    // Store thumbnail URL for use in fallback result
-    private String lastThumbnailUrl;
-
     private String extractEmbeddedMedia(String twitterUrl) {
         lastThumbnailUrl = null; // Reset
+        lastResolutions = null;
         try {
             // Extract tweet ID from URL
             String tweetId = extractTweetId(twitterUrl);
@@ -709,19 +705,99 @@ public class YtDlpService {
 
             String jsonResponse = output.toString();
 
-            // Extract thumbnail URL from FxTwitter response
-            java.util.regex.Pattern thumbPattern = java.util.regex.Pattern.compile(
-                "\"thumbnail_url\":\"([^\"]+)\"");
-            java.util.regex.Matcher thumbMatcher = thumbPattern.matcher(jsonResponse);
-            if (thumbMatcher.find()) {
-                lastThumbnailUrl = thumbMatcher.group(1);
-                logger.info("Found thumbnail URL: {}", lastThumbnailUrl);
+            // Use Jackson ObjectMapper to parse the JSON properly
+            try {
+                JsonNode rootNode = objectMapper.readTree(jsonResponse);
+                JsonNode tweetNode = rootNode.path("tweet");
+                JsonNode mediaNode = tweetNode.path("media").path("all").get(0);
+
+                if (mediaNode.isMissingNode()) {
+                    logger.warn("No media found in FxTwitter response");
+                    return null;
+                }
+
+                // Extract thumbnail URL
+                JsonNode thumbNode = mediaNode.path("thumbnail_url");
+                if (!thumbNode.isMissingNode()) {
+                    lastThumbnailUrl = thumbNode.asText();
+                    logger.info("Found thumbnail URL: {}", lastThumbnailUrl);
+                }
+
+                // Extract formats from the media node
+                JsonNode formatsNode = mediaNode.path("formats");
+                lastResolutions = new ArrayList<>();
+                java.util.Map<String, ResolutionOption> resolutionMap = new java.util.LinkedHashMap<>();
+                String bestFormatId = null;
+                int bestBitrate = 0;
+
+                if (formatsNode.isArray()) {
+                    for (JsonNode formatNode : formatsNode) {
+                        JsonNode urlNode = formatNode.path("url");
+                        JsonNode bitrateNode = formatNode.path("bitrate");
+
+                        if (urlNode.isMissingNode() || bitrateNode.isMissingNode()) {
+                            continue;
+                        }
+
+                        String formatUrl = urlNode.asText();
+                        int bitrate = bitrateNode.asInt();
+
+                        // Skip m3u8 streams
+                        if (formatUrl.contains(".m3u8")) {
+                            continue;
+                        }
+
+                        // Extract resolution from URL
+                        String resolution = "unknown";
+                        java.util.regex.Pattern resPattern = java.util.regex.Pattern.compile("/(\\d+)x(\\d+)/");
+                        java.util.regex.Matcher resMatcher = resPattern.matcher(formatUrl);
+                        if (resMatcher.find()) {
+                            resolution = resMatcher.group(2) + "p";
+                        }
+
+                        // Estimate file size from bitrate (assume 10 seconds)
+                        String size = formatFileSize(bitrate * 10 / 8);
+
+                        // Only keep best bitrate for each resolution
+                        ResolutionOption existing = resolutionMap.get(resolution);
+                        if (existing == null) {
+                            ResolutionOption option = new ResolutionOption();
+                            option.setId("fxtwitter_" + resolution);
+                            option.setFormatId(formatUrl);
+                            option.setLabel(resolution);
+                            option.setSize(size);
+                            resolutionMap.put(resolution, option);
+                            logger.info("Found format: {} {} {}", resolution, size, formatUrl);
+                        }
+
+                        // Track best quality overall
+                        if (bitrate > bestBitrate) {
+                            bestBitrate = bitrate;
+                            bestFormatId = formatUrl;
+                        }
+                    }
+                }
+
+                // Convert map to list and sort by resolution
+                lastResolutions = new ArrayList<>(resolutionMap.values());
+                if (!lastResolutions.isEmpty()) {
+                    lastResolutions.sort((a, b) -> {
+                        int heightA = parseHeight(a.getLabel());
+                        int heightB = parseHeight(b.getLabel());
+                        return heightB - heightA;
+                    });
+
+                    String videoUrl = bestFormatId;
+                    logger.info("Found Twitter video via FxTwitter: {} with {} formats", videoUrl, lastResolutions.size());
+                    return videoUrl;
+                }
+
+            } catch (Exception e) {
+                logger.error("Error parsing FxTwitter JSON: {}", e.getMessage());
             }
 
-            // Parse FxTwitter response to find media URLs
-            // The response contains "url" field for media
+            // Fallback: try regex for any video URL
             if (jsonResponse.contains("\"url\":\"https://video.twimg.com")) {
-                // Extract video URL from the response
                 java.util.regex.Pattern p = java.util.regex.Pattern.compile(
                     "\"url\":\"(https://video.twimg.com[^\"]+)\"");
                 java.util.regex.Matcher m = p.matcher(jsonResponse);
@@ -830,6 +906,20 @@ public class YtDlpService {
             return String.format("%.1fMB", bytes / (1024.0 * 1024));
         } else {
             return String.format("%.1fGB", bytes / (1024.0 * 1024 * 1024));
+        }
+    }
+
+    /**
+     * Parse height from resolution label (e.g., "720p" -> 720)
+     */
+    private int parseHeight(String label) {
+        if (label == null || label.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(label.replace("p", ""));
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 
