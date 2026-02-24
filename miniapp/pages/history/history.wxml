@@ -42,7 +42,7 @@
 
           <!-- Completed message -->
           <view class="task-completed" wx:if="{{item.status === 'completed'}}">
-            <text>已保存到相册</text>
+            <text>已完成</text>
           </view>
 
           <view class="task-footer">

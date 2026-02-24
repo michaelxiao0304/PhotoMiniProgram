@@ -253,61 +253,176 @@ Page({
       icon: 'success'
     });
 
-    // Helper function to save to album
+    // Helper function to save to file system (fallback for large files)
+    var saveToFileSystem = function(tempPath, mediaType, taskId, callback) {
+      var fs = wx.getFileSystemManager();
+      var filename = 'video_' + Date.now() + '.mp4';
+      if (mediaType !== 'VIDEO') {
+        filename = 'image_' + Date.now() + '.jpg';
+      }
+      var destPath = wx.env.USER_DATA_PATH + '/' + filename;
+
+      fs.saveFile({
+        tempFilePath: tempPath,
+        filePath: destPath,
+        success: function(res) {
+          callback(true, res.savedFilePath);
+        },
+        fail: function(err) {
+          callback(false, err);
+        }
+      });
+    };
+
+    // Helper function to save to album (with fallback to file system)
     var saveToAlbum = function(tempPath, mediaType, taskId) {
       app.updateDownloadTask(taskId, { status: 'saving' });
 
-      if (mediaType === 'VIDEO') {
-        wx.saveVideoToPhotosAlbum({
-          filePath: tempPath,
-          success: function() {
-            app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
-            wx.showToast({ title: '保存成功', icon: 'success' });
-          },
-          fail: function(err) {
-            var errorMsg = '保存失败';
-            if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-              errorMsg = '需要授权保存到相册';
-              wx.showModal({
-                title: '提示',
-                content: '需要授权保存到相册',
-                success: function(res) {
-                  if (res.confirm) {
-                    wx.openSetting();
+      var doSave = function() {
+        if (mediaType === 'VIDEO') {
+          wx.saveVideoToPhotosAlbum({
+            filePath: tempPath,
+            success: function() {
+              app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
+              wx.showToast({ title: '保存成功', icon: 'success' });
+            },
+            fail: function(err) {
+              // Check if it's a size limit error
+              var errMsg = err.errMsg || '';
+              if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
+                // Fallback to file system for large files
+                saveToFileSystem(tempPath, mediaType, taskId, function(success, result) {
+                  if (success) {
+                    app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件' });
+                    wx.showModal({
+                      title: '文件已保存',
+                      content: '文件较大，已保存到小程序存储空间。请在微信"我-设置-通用-存储空间"中查看，或通过文件管理器导出。',
+                      showCancel: false,
+                      confirmText: '知道了'
+                    });
+                  } else {
+                    app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+                    wx.showToast({ title: '保存失败', icon: 'none' });
                   }
-                }
-              });
-            }
-            app.updateDownloadTask(taskId, { status: 'failed', error: errorMsg });
-            wx.showToast({ title: errorMsg, icon: 'none' });
-          }
-        });
-      } else {
-        wx.saveImageToPhotosAlbum({
-          filePath: tempPath,
-          success: function() {
-            app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
-            wx.showToast({ title: '保存成功', icon: 'success' });
-          },
-          fail: function(err) {
-            var errorMsg = '保存失败';
-            if (err.errMsg && err.errMsg.indexOf('auth deny') !== -1) {
-              errorMsg = '需要授权保存到相册';
-              wx.showModal({
-                title: '提示',
-                content: '需要授权保存到相册',
-                success: function(res) {
-                  if (res.confirm) {
-                    wx.openSetting();
+                });
+              } else if (errMsg.indexOf('auth deny') !== -1) {
+                app.updateDownloadTask(taskId, { status: 'failed', error: '需要授权' });
+                wx.showModal({
+                  title: '提示',
+                  content: '需要授权保存到相册，是否授权？',
+                  success: function(res) {
+                    if (res.confirm) {
+                      wx.openSetting();
+                    }
                   }
-                }
-              });
+                });
+                wx.showToast({ title: '需要授权保存到相册', icon: 'none' });
+              } else {
+                app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+                wx.showToast({ title: '保存失败', icon: 'none' });
+              }
             }
-            app.updateDownloadTask(taskId, { status: 'failed', error: errorMsg });
-            wx.showToast({ title: errorMsg, icon: 'none' });
-          }
-        });
+          });
+        } else {
+          wx.saveImageToPhotosAlbum({
+            filePath: tempPath,
+            success: function() {
+              app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
+              wx.showToast({ title: '保存成功', icon: 'success' });
+            },
+            fail: function(err) {
+              var errMsg = err.errMsg || '';
+              if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
+                saveToFileSystem(tempPath, mediaType, taskId, function(success, result) {
+                  if (success) {
+                    app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件' });
+                    wx.showModal({
+                      title: '文件已保存',
+                      content: '文件较大，已保存到小程序存储空间。请在微信"我-设置-通用-存储空间"中查看。',
+                      showCancel: false,
+                      confirmText: '知道了'
+                    });
+                  } else {
+                    app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+                    wx.showToast({ title: '保存失败', icon: 'none' });
+                  }
+                });
+              } else if (errMsg.indexOf('auth deny') !== -1) {
+                app.updateDownloadTask(taskId, { status: 'failed', error: '需要授权' });
+                wx.showModal({
+                  title: '提示',
+                  content: '需要授权保存到相册',
+                  success: function(res) {
+                    if (res.confirm) {
+                      wx.openSetting();
+                    }
+                  }
+                });
+                wx.showToast({ title: '需要授权保存到相册', icon: 'none' });
+              } else {
+                app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+                wx.showToast({ title: '保存失败', icon: 'none' });
+              }
+            }
+          });
+        }
+      };
+
+      doSave();
+    };
+
+    // Helper function to download large files using wx.request (for files > 20MB)
+    var downloadLargeFile = function(downloadUrl, mediaType, taskId) {
+      var fs = wx.getFileSystemManager();
+      var filename = 'video_' + Date.now() + '.mp4';
+      if (mediaType !== 'VIDEO') {
+        filename = 'image_' + Date.now() + '.jpg';
       }
+      var destPath = wx.env.USER_DATA_PATH + '/' + filename;
+
+      app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载中...' });
+
+      wx.request({
+        url: downloadUrl,
+        responseType: 'arraybuffer',
+        success: function(res) {
+          console.log('Large file download success:', res.statusCode);
+          if (res.statusCode !== 200) {
+            app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
+            wx.showToast({ title: '下载失败: ' + res.statusCode, icon: 'none' });
+            return;
+          }
+
+          var buffer = res.data;
+          app.updateDownloadTask(taskId, { status: 'saving', progress: '保存中...' });
+
+          fs.writeFile({
+            filePath: destPath,
+            data: buffer,
+            encoding: 'binary',
+            success: function() {
+              console.log('File saved to:', destPath);
+              app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件', tempPath: destPath });
+              wx.showModal({
+                title: '下载完成',
+                content: '文件已保存到: ' + filename + '\n\n请在微信"我-设置-通用-存储空间"中查看，或通过文件管理器导出。',
+                showCancel: false,
+                confirmText: '知道了'
+              });
+            },
+            fail: function(err) {
+              console.log('Write file fail:', err);
+              app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+              wx.showToast({ title: '保存失败', icon: 'none' });
+            }
+          });
+        },
+        fail: function(err) {
+          console.log('Large file download fail:', err);
+          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
+          wx.showToast({ title: '下载失败', icon: 'none' });
+        }
+      });
     };
 
     // Helper function to do the actual download
@@ -322,8 +437,15 @@ Page({
         },
         fail: function(err) {
           console.log('Download fail:', err);
-          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-          wx.showToast({ title: '下载失败', icon: 'none' });
+          var errMsg = err.errMsg || '';
+          // If file too large, try using wx.request instead
+          if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
+            console.log('File too large, trying wx.request...');
+            downloadLargeFile(downloadUrl, mediaType, taskId);
+          } else {
+            app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
+            wx.showToast({ title: '下载失败', icon: 'none' });
+          }
         }
       });
 
@@ -376,8 +498,15 @@ Page({
               },
               fail: function(err) {
                 console.log('Stream download fail:', err);
-                app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
-                wx.showToast({ title: '下载失败', icon: 'none' });
+                var errMsg = err.errMsg || '';
+                // If file too large, try using wx.request instead
+                if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
+                  console.log('File too large, trying wx.request...');
+                  downloadLargeFile(streamUrl, mediaType, taskId);
+                } else {
+                  app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败' });
+                  wx.showToast({ title: '下载失败', icon: 'none' });
+                }
               }
             });
 

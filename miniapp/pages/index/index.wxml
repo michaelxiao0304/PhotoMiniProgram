@@ -67,7 +67,7 @@
               data-url="{{item.downloadUrl}}"
               data-media-id="{{item.id}}"
             >
-              保存到相册
+              保存
             </button>
           </view>
           <button
@@ -78,7 +78,7 @@
             data-url="{{item.downloadUrl}}"
             data-media-id="{{item.id}}"
           >
-            保存到相册
+            保存
           </button>
         </view>
       </view>
