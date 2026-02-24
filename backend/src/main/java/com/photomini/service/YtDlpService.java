@@ -136,6 +136,71 @@ public class YtDlpService {
 
         } catch (Exception e) {
             logger.error("Error parsing URL: {}", e.getMessage(), e);
+
+            // Fallback: try to extract embedded media for Twitter URLs
+            if (isTwitterUrl(url)) {
+                String embeddedUrl = extractEmbeddedMedia(url);
+                if (embeddedUrl != null) {
+                    // Check if it's already a direct video URL (from FxTwitter)
+                    if (embeddedUrl.contains("video.twimg.com")) {
+                        logger.info("Found direct video URL from FxTwitter: {}", embeddedUrl);
+                        // Create a result with the direct URL
+                        result = new ParseResult();
+                        result.setSuccess(true);
+                        result.setPlatform("Twitter");
+                        result.setSessionId(UUID.randomUUID().toString());
+
+                        MediaInfo media = new MediaInfo();
+                        media.setId(result.getSessionId() + "_0");
+                        media.setType(MediaType.VIDEO);
+                        media.setDownloadUrl(embeddedUrl);
+                        media.setThumbnailUrl(null); // Thumbnail will be extracted from video info below
+
+                        // Try to get video info
+                        try {
+                            List<String> cmd = new ArrayList<>();
+                            cmd.add(ytDlpCommand);
+                            cmd.add("--dump-json");
+                            cmd.add("--no-download");
+                            cmd.add(embeddedUrl);
+                            String jsonOutput = executeCommand(cmd, 30);
+
+                            if (jsonOutput != null && !jsonOutput.isEmpty()) {
+                                JsonNode videoJson = objectMapper.readTree(jsonOutput);
+                                if (videoJson.has("title")) {
+                                    result.setTitle("[Twitter] " + videoJson.get("title").asText());
+                                }
+                                if (videoJson.has("duration")) {
+                                    // Could set duration if needed
+                                }
+                            }
+                        } catch (Exception ex) {
+                            logger.warn("Could not get video info: {}", ex.getMessage());
+                            result.setTitle("[Twitter Video]");
+                        }
+
+                        List<MediaInfo> mediaList = new ArrayList<>();
+                        mediaList.add(media);
+                        result.setMediaList(mediaList);
+
+                        return result;
+                    } else {
+                        // It's an external URL (YouTube/TikTok) - parse it
+                        logger.info("Found external embed URL, trying to parse: {}", embeddedUrl);
+                        ParseResult embeddedResult = parseUrl(embeddedUrl);
+                        if (embeddedResult.isSuccess()) {
+                            embeddedResult.setPlatform("Twitter");
+                            if (embeddedResult.getTitle() != null) {
+                                embeddedResult.setTitle("[Twitter嵌入] " + embeddedResult.getTitle());
+                            }
+                            return embeddedResult;
+                        } else {
+                            logger.warn("Failed to parse embedded media: {}", embeddedResult.getErrorMessage());
+                        }
+                    }
+                }
+            }
+
             result.setErrorMessage("解析失败: " + e.getMessage());
         }
 
@@ -582,6 +647,162 @@ public class YtDlpService {
             return "Bilibili";
         }
         return "Unknown";
+    }
+
+    /**
+     * Check if URL is a Twitter/X URL
+     */
+    private boolean isTwitterUrl(String url) {
+        return url != null && (url.contains("twitter.com") || url.contains("x.com"));
+    }
+
+    /**
+     * Extract embedded external media URLs from Twitter page
+     * Uses FxTwitter API as fallback when yt-dlp fails
+     *
+     * @param twitterUrl the Twitter URL to extract from
+     * @return the extracted external URL (YouTube/TikTok) or null if not found
+     */
+    private String extractEmbeddedMedia(String twitterUrl) {
+        try {
+            // Extract tweet ID from URL
+            String tweetId = extractTweetId(twitterUrl);
+            if (tweetId == null) {
+                logger.warn("Could not extract tweet ID from URL: {}", twitterUrl);
+                return null;
+            }
+
+            // Use FxTwitter API to get tweet data
+            String apiUrl = "https://api.fxtwitter.com/status/" + tweetId;
+            logger.info("Trying FxTwitter API: {}", apiUrl);
+
+            List<String> command = new ArrayList<>();
+            command.add("/usr/bin/curl");
+            command.add("-s");
+            command.add("-L");
+            command.add("--max-time");
+            command.add("30");
+            command.add(apiUrl);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return null;
+            }
+
+            String jsonResponse = output.toString();
+
+            // Parse FxTwitter response to find media URLs
+            // The response contains "url" field for media
+            if (jsonResponse.contains("\"url\":\"https://video.twimg.com")) {
+                // Extract video URL from the response
+                java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                    "\"url\":\"(https://video.twimg.com[^\"]+)\"");
+                java.util.regex.Matcher m = p.matcher(jsonResponse);
+                if (m.find()) {
+                    String videoUrl = m.group(1);
+                    logger.info("Found Twitter video via FxTwitter: {}", videoUrl);
+                    return videoUrl;
+                }
+            }
+
+            // Check for external embeds (YouTube, TikTok)
+            String[] externalPatterns = {
+                "youtube\\.com/watch",
+                "youtu\\.be/",
+                "tiktok\\.com/@"
+            };
+
+            for (String pattern : externalPatterns) {
+                java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                    "(https?://[^\"]*" + pattern + "[^\"]*)");
+                java.util.regex.Matcher m = p.matcher(jsonResponse);
+                if (m.find()) {
+                    String externalUrl = m.group(1);
+                    logger.info("Found external embed via FxTwitter: {}", externalUrl);
+                    return externalUrl;
+                }
+            }
+
+            logger.warn("No media found in FxTwitter response for tweet: {}", tweetId);
+            return null;
+
+        } catch (Exception e) {
+            logger.error("Error extracting embedded media from Twitter: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract tweet ID from Twitter URL
+     */
+    private String extractTweetId(String url) {
+        try {
+            // Match patterns like /status/1234567890123456789
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "/status/(\\d+)");
+            java.util.regex.Matcher m = p.matcher(url);
+            if (m.find()) {
+                return m.group(1);
+            }
+        } catch (Exception e) {
+            logger.error("Error extracting tweet ID: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Extract URL matching a pattern from HTML content
+     */
+    private String extractUrl(String html, String pattern) {
+        try {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "(https?://[^\"']*" + pattern + "[^\"']*)",
+                java.util.regex.Pattern.CASE_INSENSITIVE
+            );
+            java.util.regex.Matcher m = p.matcher(html);
+            if (m.find()) {
+                return m.group(1);
+            }
+        } catch (Exception e) {
+            logger.error("Error matching pattern {}: {}", pattern, e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Normalize YouTube URL to standard format
+     */
+    private String normalizeYoutubeUrl(String url) {
+        // Handle youtu.be short URLs
+        if (url.contains("youtu.be/")) {
+            String videoId = url.substring(url.lastIndexOf("/") + 1);
+            // Remove any query parameters
+            if (videoId.contains("?")) {
+                videoId = videoId.substring(0, videoId.indexOf("?"));
+            }
+            return "https://www.youtube.com/watch?v=" + videoId;
+        }
+        // Handle youtube.com/shorts/ URLs
+        if (url.contains("youtube.com/shorts/")) {
+            String videoId = url.substring(url.lastIndexOf("/") + 1);
+            return "https://www.youtube.com/watch?v=" + videoId;
+        }
+        // Already in watch format
+        return url;
     }
 
     /**
