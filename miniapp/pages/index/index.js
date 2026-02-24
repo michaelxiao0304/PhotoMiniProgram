@@ -342,7 +342,7 @@ Page({
         url: resolveUrl,
         success: function(res) {
           if (res.data && res.data.needsStreaming) {
-            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...', originalUrl: '' });
+            app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
 
             var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream.mp4';
             if (formatId) {
