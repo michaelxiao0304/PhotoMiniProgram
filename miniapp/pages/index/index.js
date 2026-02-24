@@ -428,11 +428,11 @@ Page({
 
             // Check file size to decide download method
             var fileSize = res.data.fileSize || '';
-            var isLargeFile = fileSize.indexOf('MB') !== -1 && parseFloat(fileSize) > 20;
+            var isLargeFile = fileSize.indexOf('MB') !== -1 && parseFloat(fileSize) > 100;
 
             app.updateDownloadTask(taskId, { status: 'downloading', progress: '下载视频...' });
 
-            // For large files (>20MB), use wx.request with long timeout
+            // For large files (>100MB), use wx.request
             if (isLargeFile) {
               var fs = wx.getFileSystemManager();
               var filename = 'video_' + Date.now() + '.mp4';
