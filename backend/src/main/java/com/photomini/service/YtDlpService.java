@@ -154,7 +154,7 @@ public class YtDlpService {
                         media.setId(result.getSessionId() + "_0");
                         media.setType(MediaType.VIDEO);
                         media.setDownloadUrl(embeddedUrl);
-                        media.setThumbnailUrl(null); // Thumbnail will be extracted from video info below
+                        media.setThumbnailUrl(lastThumbnailUrl); // Use thumbnail from FxTwitter API
 
                         // Try to get video info
                         try {
@@ -663,7 +663,11 @@ public class YtDlpService {
      * @param twitterUrl the Twitter URL to extract from
      * @return the extracted external URL (YouTube/TikTok) or null if not found
      */
+    // Store thumbnail URL for use in fallback result
+    private String lastThumbnailUrl;
+
     private String extractEmbeddedMedia(String twitterUrl) {
+        lastThumbnailUrl = null; // Reset
         try {
             // Extract tweet ID from URL
             String tweetId = extractTweetId(twitterUrl);
@@ -704,6 +708,15 @@ public class YtDlpService {
             }
 
             String jsonResponse = output.toString();
+
+            // Extract thumbnail URL from FxTwitter response
+            java.util.regex.Pattern thumbPattern = java.util.regex.Pattern.compile(
+                "\"thumbnail_url\":\"([^\"]+)\"");
+            java.util.regex.Matcher thumbMatcher = thumbPattern.matcher(jsonResponse);
+            if (thumbMatcher.find()) {
+                lastThumbnailUrl = thumbMatcher.group(1);
+                logger.info("Found thumbnail URL: {}", lastThumbnailUrl);
+            }
 
             // Parse FxTwitter response to find media URLs
             // The response contains "url" field for media
