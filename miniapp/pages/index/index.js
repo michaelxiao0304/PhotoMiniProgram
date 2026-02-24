@@ -426,17 +426,22 @@ Page({
             var downloadUrl = res.data.downloadUrl;
             var fileSize = res.data.fileSize || '';
 
-            app.updateDownloadTask(taskId, { status: 'completed', progress: '已准备下载' });
+            console.log('Large file detected, fileSize:', fileSize, 'url:', downloadUrl);
+
+            // Show loading first
+            wx.showLoading({ title: '准备下载...', mask: true });
 
             // Use downloadManualDownloadFile (基础库 2.11.0+)
             wx.downloadManualDownloadFile({
               url: downloadUrl,
               success: function(dlRes) {
-                console.log('下载成功:', dlRes);
+                console.log('downloadManualDownloadFile success:', dlRes);
+                wx.hideLoading();
                 wx.showToast({ title: '已加入下载列表', icon: 'success' });
               },
               fail: function(err) {
-                console.log('下载失败:', err);
+                console.log('downloadManualDownloadFile fail:', err);
+                wx.hideLoading();
                 // Fallback: copy URL
                 wx.setClipboardData({
                   data: downloadUrl,
@@ -446,6 +451,14 @@ Page({
                       content: '文件较大(' + fileSize + ')，请打开手机浏览器，粘贴链接下载。',
                       showCancel: false,
                       confirmText: '知道了'
+                    });
+                  },
+                  fail: function() {
+                    wx.showModal({
+                      title: '下载链接',
+                      content: downloadUrl,
+                      showCancel: false,
+                      confirmText: '我知道了'
                     });
                   }
                 });
