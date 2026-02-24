@@ -422,56 +422,30 @@ Page({
         success: function(res) {
           // Check if should use browser download
           if (res.data && res.data.browserDownload && res.data.downloadUrl) {
-            // Large file - use system browser to download
+            // Large file - copy URL to clipboard for browser download
             var downloadUrl = res.data.downloadUrl;
             var fileSize = res.data.fileSize || '';
 
             app.updateDownloadTask(taskId, { status: 'completed', progress: '已准备下载' });
-            wx.showModal({
-              title: '文件较大(' + fileSize + ')',
-              content: '请点击下方按钮在系统浏览器中下载',
-              confirmText: '下载',
-              success: function(modalRes) {
-                if (modalRes.confirm) {
-                  // Try using downloadManualDownloadFile (基础库 2.11.0+)
-                  if (wx.downloadManualDownloadFile) {
-                    wx.downloadManualDownloadFile({
-                      url: downloadUrl,
-                      success: function(dlRes) {
-                        console.log('Browser download success:', dlRes);
-                        wx.showToast({ title: '下载成功', icon: 'success' });
-                      },
-                      fail: function(err) {
-                        console.log('Browser download fail:', err);
-                        // Fallback: copy URL to clipboard
-                        wx.setClipboardData({
-                          data: downloadUrl,
-                          success: function() {
-                            wx.showModal({
-                              title: '链接已复制',
-                              content: '请打开浏览器粘贴链接下载。链接已复制到剪贴板。',
-                              showCancel: false,
-                              confirmText: '知道了'
-                            });
-                          }
-                        });
-                      }
-                    });
-                  } else {
-                    // Fallback: copy URL to clipboard
-                    wx.setClipboardData({
-                      data: downloadUrl,
-                      success: function() {
-                        wx.showModal({
-                          title: '链接已复制',
-                          content: '文件较大(' + fileSize + ')，请打开浏览器粘贴链接下载。',
-                          showCancel: false,
-                          confirmText: '知道了'
-                        });
-                      }
-                    });
-                  }
-                }
+
+            // Directly copy URL to clipboard
+            wx.setClipboardData({
+              data: downloadUrl,
+              success: function() {
+                wx.showModal({
+                  title: '链接已复制',
+                  content: '文件较大(' + fileSize + ')，请打开手机浏览器，粘贴链接即可下载。',
+                  showCancel: false,
+                  confirmText: '知道了'
+                });
+              },
+              fail: function(err) {
+                wx.showModal({
+                  title: '下载链接',
+                  content: downloadUrl,
+                  showCancel: false,
+                  confirmText: '我知道了'
+                });
               }
             });
             return;
