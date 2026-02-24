@@ -352,7 +352,7 @@ Page({
 
       var resolveUrl = app.globalData.apiBase + '/media/' + mediaId + '/download-url';
       if (formatId) {
-        resolveUrl = resolveUrl + '?formatId=' + formatId;
+        resolveUrl = resolveUrl + '?formatId=' + encodeURIComponent(formatId);
       }
 
       wx.request({
@@ -363,7 +363,7 @@ Page({
 
             var streamUrl = app.globalData.apiBase + '/media/' + mediaId + '/stream.mp4';
             if (formatId) {
-              streamUrl = streamUrl + '?formatId=' + formatId;
+              streamUrl = streamUrl + '?formatId=' + encodeURIComponent(formatId);
             }
 
             var downloadTask = wx.downloadFile({
