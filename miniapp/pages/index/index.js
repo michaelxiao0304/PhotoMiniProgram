@@ -422,29 +422,32 @@ Page({
         success: function(res) {
           // Check if should use browser download
           if (res.data && res.data.browserDownload && res.data.downloadUrl) {
-            // Large file - copy URL to clipboard for browser download
+            // Large file - use downloadManualDownloadFile (真机可用)
             var downloadUrl = res.data.downloadUrl;
             var fileSize = res.data.fileSize || '';
 
             app.updateDownloadTask(taskId, { status: 'completed', progress: '已准备下载' });
 
-            // Directly copy URL to clipboard
-            wx.setClipboardData({
-              data: downloadUrl,
-              success: function() {
-                wx.showModal({
-                  title: '链接已复制',
-                  content: '文件较大(' + fileSize + ')，请打开手机浏览器，粘贴链接即可下载。',
-                  showCancel: false,
-                  confirmText: '知道了'
-                });
+            // Use downloadManualDownloadFile (基础库 2.11.0+)
+            wx.downloadManualDownloadFile({
+              url: downloadUrl,
+              success: function(dlRes) {
+                console.log('下载成功:', dlRes);
+                wx.showToast({ title: '已加入下载列表', icon: 'success' });
               },
               fail: function(err) {
-                wx.showModal({
-                  title: '下载链接',
-                  content: downloadUrl,
-                  showCancel: false,
-                  confirmText: '我知道了'
+                console.log('下载失败:', err);
+                // Fallback: copy URL
+                wx.setClipboardData({
+                  data: downloadUrl,
+                  success: function() {
+                    wx.showModal({
+                      title: '链接已复制',
+                      content: '文件较大(' + fileSize + ')，请打开手机浏览器，粘贴链接下载。',
+                      showCancel: false,
+                      confirmText: '知道了'
+                    });
+                  }
                 });
               }
             });
