@@ -210,18 +210,37 @@ public class MediaController {
             // For images, use direct download URL
             boolean isVideo = media.getType() == com.photomini.model.MediaType.VIDEO;
             boolean needsStreaming = isVideo;
-            response.put("downloadUrl", isVideo ? null : resolvedUrl);
-            response.put("needsStreaming", needsStreaming);
             response.put("formatId", formatId);
 
             // Add file size estimate for videos
+            String fileSize = null;
             if (isVideo && media.getResolutions() != null) {
                 for (ResolutionOption res : media.getResolutions()) {
                     if (formatId != null && formatId.equals(res.getFormatId())) {
-                        response.put("fileSize", res.getSize());
+                        fileSize = res.getSize();
+                        response.put("fileSize", fileSize);
                         break;
                     }
                 }
+            }
+
+            // Check if file is large (>100MB) - return direct URL for browser download
+            boolean isLargeFile = fileSize != null && (
+                fileSize.contains("GB") ||
+                (fileSize.contains("MB") && parseFileSize(fileSize) > 100)
+            );
+
+            if (isLargeFile && directVideoUrl != null) {
+                // For large files with direct URL, return browser download URL
+                response.put("downloadUrl", directVideoUrl);
+                response.put("needsStreaming", false);
+                response.put("browserDownload", true);
+            } else if (isVideo) {
+                response.put("downloadUrl", null);
+                response.put("needsStreaming", needsStreaming);
+            } else {
+                response.put("downloadUrl", resolvedUrl);
+                response.put("needsStreaming", false);
             }
 
             return ResponseEntity.ok(response);
@@ -380,6 +399,25 @@ public class MediaController {
         Map<String, String> response = new HashMap<>();
         response.put("message", "History cleared");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Parse file size string to MB value
+     */
+    private double parseFileSize(String sizeStr) {
+        if (sizeStr == null) return 0;
+        try {
+            if (sizeStr.contains("GB")) {
+                return Double.parseDouble(sizeStr.replace("GB", "").trim()) * 1024;
+            } else if (sizeStr.contains("MB")) {
+                return Double.parseDouble(sizeStr.replace("MB", "").trim());
+            } else if (sizeStr.contains("KB")) {
+                return Double.parseDouble(sizeStr.replace("KB", "").trim()) / 1024;
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to parse file size: {}", sizeStr);
+        }
+        return 0;
     }
 
     /**
