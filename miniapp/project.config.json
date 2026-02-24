@@ -4,7 +4,10 @@
     "ignore": []
   },
   "setting": {
-    "urlCheck": false
+    "urlCheck": false,
+    "minified": true,
+    "es6": true,
+    "enhance": true
   },
   "compileType": "miniprogram",
   "libVersion": "3.3.0",
