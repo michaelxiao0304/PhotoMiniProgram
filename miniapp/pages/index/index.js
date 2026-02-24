@@ -330,7 +330,8 @@ Page({
     };
 
     // Check if URL needs to be resolved
-    if (url.indexOf('FORMAT:') === 0 && mediaId) {
+    // For all videos, use the backend API to get download URL (handles large files via streaming)
+    if (mediaType === 'VIDEO' && mediaId) {
       app.updateDownloadTask(taskId, { status: 'resolving', progress: '获取链接...' });
 
       var resolveUrl = app.globalData.apiBase + '/media/' + mediaId + '/download-url';
