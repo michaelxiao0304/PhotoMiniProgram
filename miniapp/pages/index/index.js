@@ -211,6 +211,22 @@ Page({
       }
     }
 
+    // If no resolution selected, use default resolution's formatId
+    if (!formatId && mediaId && mediaList) {
+      for (var i = 0; i < mediaList.length; i++) {
+        if (mediaList[i].id === mediaId && mediaList[i].resolutions && mediaList[i].defaultResolution) {
+          var resolutions = mediaList[i].resolutions;
+          for (var j = 0; j < resolutions.length; j++) {
+            if (resolutions[j].label === mediaList[i].defaultResolution) {
+              formatId = resolutions[j].formatId;
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+
     if (!url) return;
 
     // Create task ID

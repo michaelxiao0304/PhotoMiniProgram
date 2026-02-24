@@ -180,10 +180,16 @@ public class MediaController {
             }
 
             String formatSelector;
+            String directVideoUrl = null;
 
             if (formatId != null && !formatId.isEmpty()) {
-                // HLS formats (hls-xxx) can't be combined with bestaudio
-                if (formatId.startsWith("hls-")) {
+                // Check if formatId is a direct video URL (from FxTwitter)
+                if (formatId.startsWith("http")) {
+                    // This is a direct video URL from FxTwitter - use it directly
+                    directVideoUrl = formatId;
+                    formatSelector = null;
+                } else if (formatId.startsWith("hls-")) {
+                    // HLS formats (hls-xxx) can't be combined with bestaudio
                     formatSelector = formatId;
                 } else {
                     // For regular formats, combine with bestaudio
@@ -194,7 +200,7 @@ public class MediaController {
                 formatSelector = "bestvideo+bestaudio/best";
             }
 
-            String resolvedUrl = ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
+            String resolvedUrl = directVideoUrl != null ? directVideoUrl : ytDlpService.resolveDownloadUrl(sourceUrl, formatSelector);
 
             Map<String, Object> response = new HashMap<>();
             // Only use streaming for videos (to handle HLS streams and merge audio)
@@ -251,8 +257,15 @@ public class MediaController {
 
             // Determine format
             String formatSelector;
+            String directVideoUrl = null;
+
             if (formatId != null && !formatId.isEmpty()) {
-                if (formatId.startsWith("hls-")) {
+                // Check if formatId is a direct video URL (from FxTwitter)
+                if (formatId.startsWith("http")) {
+                    // This is a direct video URL from FxTwitter - use it directly
+                    directVideoUrl = formatId;
+                    formatSelector = null;
+                } else if (formatId.startsWith("hls-")) {
                     formatSelector = formatId + "+hls-audio-best/best";
                 } else {
                     formatSelector = formatId + "+bestaudio/best";
@@ -261,7 +274,7 @@ public class MediaController {
                 formatSelector = "bestvideo+bestaudio/best";
             }
 
-            sourceUrlFinal = sourceUrl;
+            sourceUrlFinal = directVideoUrl != null ? directVideoUrl : sourceUrl;
             formatSelectorFinal = formatSelector;
 
         } catch (Exception e) {
