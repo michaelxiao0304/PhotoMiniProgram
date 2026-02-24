@@ -14,3 +14,4 @@ yt-dlp:
   temp-dir: /tmp/photo-mini-program
   timeout-seconds: 300
   cookies-file: /home/ubuntu/.config/instagram-cookies.txt
+  youtube-cookies-file: /home/ubuntu/.config/youtube-cookies.txt

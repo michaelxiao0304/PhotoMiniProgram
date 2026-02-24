@@ -40,6 +40,9 @@ public class YtDlpService {
     @Value("${yt-dlp.cookies-file:}")
     private String cookiesFile;
 
+    @Value("${yt-dlp.youtube-cookies-file:}")
+    private String youtubeCookiesFile;
+
     // Store parsed data from FxTwitter API for fallback results
     private String lastThumbnailUrl;
     private List<ResolutionOption> lastResolutions;
@@ -92,10 +95,19 @@ public class YtDlpService {
             command.add("--no-warnings");
             command.add("-q");
 
-            // Add cookies if configured
-            if (cookiesFile != null && !cookiesFile.isEmpty()) {
+            // Add cookies if configured - use platform-specific cookies
+            String platform = detectPlatform(url);
+            String cookiesToUse = null;
+
+            if ("YouTube".equals(platform) && youtubeCookiesFile != null && !youtubeCookiesFile.isEmpty()) {
+                cookiesToUse = youtubeCookiesFile;
+            } else if (cookiesFile != null && !cookiesFile.isEmpty()) {
+                cookiesToUse = cookiesFile;
+            }
+
+            if (cookiesToUse != null) {
                 command.add("--cookies");
-                command.add(cookiesFile);
+                command.add(cookiesToUse);
             }
 
             command.add(url);
