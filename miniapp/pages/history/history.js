@@ -222,13 +222,121 @@ Page({
   },
 
   onRetryDownload: function(e) {
+    var self = this;
     var taskId = e.currentTarget.dataset.taskId;
     var task = app.getDownloadTask(taskId);
-    if (task && task.error) {
-      // Remove failed task and trigger re-download from index page
-      // For now, just show a message
+
+    if (!task) {
+      wx.showToast({ title: '任务不存在', icon: 'none' });
+      return;
+    }
+
+    // Check if we have a download URL saved
+    if (task.downloadUrl) {
+      // Update task status to retrying
+      app.updateDownloadTask(taskId, { status: 'downloading', error: '', progress: '0 B / 0 B', progressPercent: 0 });
+
+      // Refresh the task list UI
+      this.loadDownloadTasks();
+
+      // Use wx.downloadFile directly for retry
+      var downloadTask = wx.downloadFile({
+        url: task.downloadUrl,
+        success: function(res) {
+          console.log('Retry download success:', res);
+          var tempPath = res.tempFilePath;
+          app.updateDownloadTask(taskId, { tempPath: tempPath, status: 'saving' });
+
+          // Save to album
+          var mediaType = task.mediaType || 'IMAGE';
+          if (mediaType === 'VIDEO') {
+            wx.saveVideoToPhotosAlbum({
+              filePath: tempPath,
+              success: function() {
+                app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
+                self.loadDownloadTasks();
+                wx.showToast({ title: '保存成功', icon: 'success' });
+              },
+              fail: function(err) {
+                var errMsg = err.errMsg || '';
+                if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
+                  app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件' });
+                  wx.showModal({
+                    title: '文件已保存',
+                    content: '文件较大，已保存到小程序存储空间。',
+                    showCancel: false,
+                    confirmText: '知道了'
+                  });
+                } else {
+                  app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+                  wx.showToast({ title: '保存失败', icon: 'none' });
+                }
+                self.loadDownloadTasks();
+              }
+            });
+          } else {
+            wx.saveImageToPhotosAlbum({
+              filePath: tempPath,
+              success: function() {
+                app.updateDownloadTask(taskId, { status: 'completed', progress: '已完成' });
+                self.loadDownloadTasks();
+                wx.showToast({ title: '保存成功', icon: 'success' });
+              },
+              fail: function(err) {
+                var errMsg = err.errMsg || '';
+                if (errMsg.indexOf('exceed') !== -1 || errMsg.indexOf('max') !== -1) {
+                  app.updateDownloadTask(taskId, { status: 'completed', progress: '已保存到文件' });
+                } else {
+                  app.updateDownloadTask(taskId, { status: 'failed', error: '保存失败' });
+                }
+                self.loadDownloadTasks();
+                wx.showToast({ title: '保存失败', icon: 'none' });
+              }
+            });
+          }
+        },
+        fail: function(err) {
+          console.log('Retry download fail:', err);
+          var errMsg = err.errMsg || '未知错误';
+          app.updateDownloadTask(taskId, { status: 'failed', error: '下载失败: ' + errMsg });
+          self.loadDownloadTasks();
+          wx.showToast({ title: '下载失败: ' + errMsg, icon: 'none', duration: 3000 });
+        }
+      });
+
+      // Monitor progress
+      downloadTask.onProgressUpdate(function(progressRes) {
+        var totalBytesWritten = progressRes.totalBytesWritten;
+        var totalBytesExpectedToWrite = progressRes.totalBytesExpectedToWrite;
+        var written = self.formatSize(totalBytesWritten);
+        var total = self.formatSize(totalBytesExpectedToWrite);
+        var progressStr = written + ' / ' + total;
+        var percent = 0;
+        if (totalBytesExpectedToWrite > 0) {
+          percent = Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100);
+        }
+        app.updateDownloadTask(taskId, {
+          progress: progressStr,
+          progressPercent: percent
+        });
+        self.loadDownloadTasks();
+      });
+    } else {
+      // No download URL saved, need to re-parse
       wx.showToast({ title: '请重新点击下载', icon: 'none' });
     }
+  },
+
+  // Helper function to format file size
+  formatSize: function(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    var units = ['B', 'KB', 'MB', 'GB'];
+    var i = 0;
+    while (bytes >= 1024 && i < units.length - 1) {
+      bytes = bytes / 1024;
+      i++;
+    }
+    return bytes.toFixed(1) + ' ' + units[i];
   },
 
   onClearTask: function(e) {

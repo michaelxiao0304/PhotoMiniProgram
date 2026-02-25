@@ -373,6 +373,9 @@ Page({
 
     // Helper function to do the actual download
     var doDownload = function(downloadUrl, mediaType, taskId) {
+      // Save the actual download URL for retry
+      app.updateDownloadTask(taskId, { downloadUrl: downloadUrl });
+
       var downloadTask = wx.downloadFile({
         url: downloadUrl,
         success: function(res) {
