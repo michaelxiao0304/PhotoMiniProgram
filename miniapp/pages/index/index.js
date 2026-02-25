@@ -435,7 +435,11 @@ Page({
                   title: '链接已复制',
                   content: '文件较大(' + fileSize + ')，请打开手机浏览器，粘贴链接下载。',
                   showCancel: false,
-                  confirmText: '知道了'
+                  confirmText: '知道了',
+                  success: function() {
+                    // User confirmed - mark task as completed
+                    app.updateDownloadTask(taskId, { status: 'completed', progress: '已复制链接' });
+                  }
                 });
               }
             });
