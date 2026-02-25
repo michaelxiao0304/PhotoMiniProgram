@@ -239,6 +239,8 @@ Page({
       originalUrl: this.data.url || '',  // 保存原始分享链接
       title: mediaTitle,
       mediaType: mediaType,
+      mediaId: mediaId || null,  // 保存 mediaId 用于大文件重试
+      formatId: formatId || null,  // 保存 formatId 用于大文件重试
       status: 'downloading',
       progress: '0 B / 0 B',
       progressPercent: 0,

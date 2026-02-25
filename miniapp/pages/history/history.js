@@ -231,7 +231,75 @@ Page({
       return;
     }
 
-    // Check if we have a download URL saved
+    // Check if it's a large file (has mediaId but no downloadUrl saved)
+    // Large file retry uses browser download method
+    if (task.mediaId && !task.downloadUrl) {
+      // Get the API URL for resolving download link
+      var resolveUrl = app.globalData.apiBase + '/media/' + task.mediaId + '/download-url';
+      if (task.formatId) {
+        resolveUrl = resolveUrl + '?formatId=' + encodeURIComponent(task.formatId);
+      }
+
+      app.updateDownloadTask(taskId, { status: 'resolving', progress: '获取链接...' });
+
+      wx.request({
+        url: resolveUrl,
+        success: function(res) {
+          if (res.data && res.data.browserDownload && res.data.downloadUrl) {
+            var downloadUrl = res.data.downloadUrl;
+            var fileSize = res.data.fileSize || '';
+
+            // Copy URL to clipboard - user opens browser to download
+            wx.setClipboardData({
+              data: downloadUrl,
+              success: function() {
+                wx.showModal({
+                  title: '链接已复制',
+                  content: '文件较大(' + fileSize + ')，请打开手机浏览器，粘贴链接下载。',
+                  showCancel: false,
+                  confirmText: '知道了',
+                  success: function() {
+                    // User confirmed - mark task as completed
+                    app.updateDownloadTask(taskId, { status: 'completed', progress: '已复制链接' });
+                    self.loadDownloadTasks();
+                  }
+                });
+              }
+            });
+          } else {
+            // Fallback: try to get stream URL for retry
+            var streamUrl = app.globalData.apiBase + '/media/' + task.mediaId + '/stream.mp4';
+            if (task.formatId) {
+              streamUrl = streamUrl + '?formatId=' + encodeURIComponent(task.formatId);
+            }
+
+            wx.setClipboardData({
+              data: streamUrl,
+              success: function() {
+                wx.showModal({
+                  title: '链接已复制',
+                  content: '请点击"复制链接"，然后打开手机浏览器粘贴下载。',
+                  showCancel: false,
+                  confirmText: '知道了',
+                  success: function() {
+                    app.updateDownloadTask(taskId, { status: 'completed', progress: '已复制链接' });
+                    self.loadDownloadTasks();
+                  }
+                });
+              }
+            });
+          }
+        },
+        fail: function() {
+          app.updateDownloadTask(taskId, { status: 'failed', error: '获取链接失败' });
+          self.loadDownloadTasks();
+          wx.showToast({ title: '获取链接失败', icon: 'none' });
+        }
+      });
+      return;
+    }
+
+    // Check if we have a download URL saved (normal retry)
     if (task.downloadUrl) {
       // Update task status to retrying
       app.updateDownloadTask(taskId, { status: 'downloading', error: '', progress: '0 B / 0 B', progressPercent: 0 });
